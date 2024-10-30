@@ -65,6 +65,29 @@ def memory_loss(F, r, u_0, lambda_reg=0.1):
     activation_penalty = lambda_reg * torch.norm(r, p=1)
     return error_loss+activation_penalty, activation_penalty
 
+
+# Function to calculate memory loss as integral over time
+def memory_loss_integral(F, r_list, u_0, lambda_reg=0.1, dt=0.1):
+    """
+    Calculate the loss as an integral over time using a given list of r values.
+    """
+    total_error_loss = 0.0
+    total_activation_penalty = 0.0
+    
+    # Iterate over all time steps
+    for r_t in r_list:
+        u_hat = F @ r_t  # Decode memory at each time step
+        error = u_0 - u_hat
+        total_error_loss += torch.norm(error, p=2) ** 2
+        total_activation_penalty += torch.norm(r_t, p=1)
+
+    # Approximate the integral over time by multiplying with the time step size dt
+    total_activation_penalty = dt * lambda_reg * total_activation_penalty
+    total_error_loss = dt * total_error_loss
+    total_loss = total_error_loss + total_activation_penalty
+
+    return total_loss, total_activation_penalty
+
 # Function to extract orientation from decoded memory
 def extract_orientation(decoded_memory):
     """
@@ -91,7 +114,7 @@ decode_noise = 0.0
 T = 200  # Number of time steps
 
 # Training parameters
-eta = 0.01 # learning_rate
+eta = 0.05 # learning_rate
 lambda_reg=0.1
 
 
@@ -123,22 +146,26 @@ for epoch in range(num_epochs):
     
     # Initialize hidden state r with zeros
     r = torch.zeros(hidden_size)
+    # List to store r at each time step
+    r_list = []
     
     # Simulate the RNN over a given number of time steps
     for t in range(T):
         u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(t < T//10))
         r = model(r, u_t)
-    
-    u_0 = generate_input(strength, theta, noise_level=0, stimuli_present=True) # initial input, ground truth
+        r_list.append(r.clone())  # Store r at this time step
 
-    # Calculate the memory error loss at the end of the simulation
-    total_loss, activ_penal = memory_loss(model.F, r, u_0, lambda_reg=lambda_reg)
+    # initial input, ground truth. No noise
+    u_0 = generate_input(strength, theta, noise_level=0.0, stimuli_present=True)
+
+    # Calculate the integral-based memory error loss
+    total_loss, activ_penal = memory_loss_integral(model.F, r_list, u_0, lambda_reg=lambda_reg, dt=dt)
     total_loss.backward()
     optimizer.step()
     
     # Print loss for tracking
     if epoch % 10 == 0:
-        print(f"Epoch {epoch}: Total loss = {total_loss.item()}, Active panelty = {activ_penal.item()}")
+        print(f"Epoch {epoch}: Error loss = {total_loss.item()-activ_penal.item()}, Active panelty = {activ_penal.item()}")
 
 
 # Initialize hidden state r with zeros
@@ -146,15 +173,11 @@ r = torch.zeros(hidden_size)
 decoded_orientations_after = []
 
 
-# Stimuli
-strength = torch.tensor([10.0, 0.0, 0.0, 0.0])  # Strengths of items
-theta = torch.tensor([1.5, 0.0, 0.0, 0.0])  # Orientations of items
-
 # Simulate the RNN over a given number of time steps and decode the memory at each step
 for t in range(T):
     u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(t < T//10))
     r = model(r, u_t)
-    print(f'average firing rate: {torch.mean(r)}')
+    # print(f'average firing rate: {torch.mean(r)}')
     decoded_memory = model.decode(r)
     orientation = extract_orientation(decoded_memory)  # Get orientation from decoded memory
     decoded_orientations_after.append(orientation[0].item())  # Store only the first item’s orientation
