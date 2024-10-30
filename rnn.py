@@ -9,27 +9,30 @@ device = 'mps'
 
 
 # Activation function Φ(x) = 0.4 * (1 + tanh(0.4 * x - 3))
-def activation_function(x):
-    return 0.4 * (1 + torch.tanh(0.4 * x - 3))
+
 
 # Define the RNN model class
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, hidden_size, tau=1.0, dt=0.1):
+    def __init__(self, max_item_num, hidden_size, tau=1.0, dt=0.1, noise_level=0.0):
         super(RNNMemoryModel, self).__init__()
         self.hidden_size = hidden_size
         self.tau = tau  # unit: ms
         self.dt = dt   # unit: ms
+        self.noise_level = noise_level
 
         # Learnable parameters
         self.W = nn.Parameter(torch.randn(hidden_size, hidden_size))
         self.B = nn.Parameter(torch.randn(hidden_size, max_item_num*2))
         self.F = nn.Parameter(torch.randn(max_item_num*2, hidden_size))
-        
+
+    def activation_function(self, x):
+        return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
+    
     def forward(self, r, u):
         # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
 
-        r_dot = (-r + activation_function(self.W @ r + self.B @ u)) / self.tau
-        r = r + self.dt * r_dot
+        r_dot = (-r + self.activation_function(self.W @ r + self.B @ u)) / self.tau
+        r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
 
         return r
     
@@ -42,6 +45,7 @@ def generate_input(strength, theta, noise_level=0.1, stimuli_present=True):
     """
     Generate the input vector u(t) based on the stimuli presence and noise level.
     """
+    theta = theta + noise_level * torch.randn_like(theta)
 
     item_num = strength.shape[0]
     u_0 = torch.zeros(2 * item_num)
@@ -50,8 +54,7 @@ def generate_input(strength, theta, noise_level=0.1, stimuli_present=True):
         u_0[2 * i + 1] = strength[i] * torch.sin(theta[i])
     
     # Add noise if specified
-    noise = noise_level * torch.randn_like(u_0)
-    u_t = u_0 * (1 if stimuli_present else 0) + noise
+    u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
 # Function to calculate memory error and loss
@@ -60,7 +63,7 @@ def memory_loss(F, r, u_0, lambda_reg=0.1):
     error = u_0 - u_hat
     error_loss = torch.norm(error, p=2) ** 2
     activation_penalty = lambda_reg * torch.norm(r, p=1)
-    return error_loss + activation_penalty
+    return error_loss+activation_penalty, activation_penalty
 
 # Function to extract orientation from decoded memory
 def extract_orientation(decoded_memory):
@@ -75,24 +78,32 @@ def extract_orientation(decoded_memory):
     return orientation
 
 
-# Initialize parameters and model
+# Model parameters
 max_item_num = 4
-hidden_size = 10
+hidden_size = 20
+tau = 10  # ms
+dt = 0.1    # ms
 
-tau = 1.0  # Time constant
-dt = 0.1
+num_epochs = 400
+encode_noise = 0.0
+priocess_noise = 0.0
+decode_noise = 0.0
+T = 200  # Number of time steps
+
+# Training parameters
 eta = 0.01 # learning_rate
-num_epochs = 1000
+lambda_reg=0.1
+
+
 
 # Create the RNN model
-model = RNNMemoryModel(max_item_num, hidden_size, tau, dt)
+model = RNNMemoryModel(max_item_num=max_item_num, hidden_size=hidden_size, tau=tau, dt=dt, noise_level=priocess_noise)
 optimizer = optim.Adam(model.parameters(), lr=eta)
 
 
-# Simulation parameters
-T = 200  # Number of time steps
-strength = torch.tensor([1.0, 0.0, 0.0, 0.0])  # Strengths of items
-theta = torch.tensor([0.0, 0.0, 0.0, 0.0])  # Orientations of items
+# Stimuli
+strength = torch.tensor([10.0, 0.0, 0.0, 0.0])  # Strengths of items
+theta = torch.tensor([0.8, 0.0, 0.0, 0.0])  # Orientations of items
 
 # Initialize hidden state r with zeros
 r = torch.zeros(hidden_size)
@@ -100,52 +111,53 @@ decoded_orientations_before = []
 
 # Simulate the RNN over a given number of time steps and decode the memory at each step
 for t in range(T):
-    u_t = generate_input(strength, theta, noise_level=0.1, stimuli_present=(t < T // 2))
+    u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(t < T//10))
     r = model(r, u_t)
     decoded_memory = model.decode(r)
     orientation = extract_orientation(decoded_memory)  # Get orientation from decoded memory
     decoded_orientations_before.append(orientation[0].item())  # Store only the first item’s orientation
 
-
-
-
-
-# Example training loop
+# Training loop
 for epoch in range(num_epochs):
     optimizer.zero_grad()
-
-    u_0 = generate_input(strength, theta, noise_level=0.1, stimuli_present=True)
     
     # Initialize hidden state r with zeros
     r = torch.zeros(hidden_size)
     
     # Simulate the RNN over a given number of time steps
     for t in range(T):
-        u_t = generate_input(strength, theta, noise_level=0.1, stimuli_present=(t < T//2))
+        u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(t < T//10))
         r = model(r, u_t)
     
+    u_0 = generate_input(strength, theta, noise_level=0, stimuli_present=True) # initial input, ground truth
+
     # Calculate the memory error loss at the end of the simulation
-    loss = memory_loss(model.F, r, u_0)
-    loss.backward()
+    total_loss, activ_penal = memory_loss(model.F, r, u_0, lambda_reg=lambda_reg)
+    total_loss.backward()
     optimizer.step()
     
     # Print loss for tracking
     if epoch % 10 == 0:
-        print(f"Epoch {epoch}: Loss = {loss.item()}")
+        print(f"Epoch {epoch}: Total loss = {total_loss.item()}, Active panelty = {activ_penal.item()}")
 
 
 # Initialize hidden state r with zeros
 r = torch.zeros(hidden_size)
 decoded_orientations_after = []
 
+
+# Stimuli
+strength = torch.tensor([10.0, 0.0, 0.0, 0.0])  # Strengths of items
+theta = torch.tensor([1.5, 0.0, 0.0, 0.0])  # Orientations of items
+
 # Simulate the RNN over a given number of time steps and decode the memory at each step
 for t in range(T):
-    u_t = generate_input(strength, theta, noise_level=0.1, stimuli_present=(t < T // 2))
+    u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(t < T//10))
     r = model(r, u_t)
+    print(f'average firing rate: {torch.mean(r)}')
     decoded_memory = model.decode(r)
     orientation = extract_orientation(decoded_memory)  # Get orientation from decoded memory
     decoded_orientations_after.append(orientation[0].item())  # Store only the first item’s orientation
-
 
 # Plot the decoded memory orientation vs. time
 plt.figure(figsize=(10, 6))
@@ -163,6 +175,3 @@ plt.xlabel('Time Steps')
 plt.ylabel('Orientation (radians)')
 plt.grid(True)
 plt.show()
-
-
-
