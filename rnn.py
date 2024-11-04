@@ -8,17 +8,17 @@ from tqdm import tqdm
 
 # Define the RNN model class
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, hidden_size, tau=1.0, dt=0.1, noise_level=0.0):
+    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0):
         super(RNNMemoryModel, self).__init__()
-        self.hidden_size = hidden_size
+        self.num_neurons = num_neurons
         self.tau = tau  # unit: ms
         self.dt = dt   # unit: ms
         self.noise_level = noise_level
 
         # Learnable parameters
-        self.W = nn.Parameter(torch.randn(hidden_size, hidden_size) / hidden_size**0.5) 
-        self.B = nn.Parameter(torch.randn(hidden_size, max_item_num*2))
-        self.F = nn.Parameter(torch.randn(max_item_num*2, hidden_size) / hidden_size**0.5)
+        self.W = nn.Parameter(torch.randn(num_neurons, num_neurons) / num_neurons**0.5) 
+        self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2))
+        self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons) / num_neurons**0.5)
 
     def activation_function(self, x):
         return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
@@ -29,16 +29,18 @@ class RNNMemoryModel(nn.Module):
         r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
         return r
     
-    def decode(self, r):
-        return self.F @ r
+def decode(F, r):
+    u_hat = (F@r).view(8, 2)
+    normalized_u_hat = u_hat / torch.norm(u_hat, dim=1, keepdim=True)
+    return  normalized_u_hat.view(-1)
 
-def generate_input(strength, theta, noise_level=0.0, stimuli_present=True):
+def generate_input(presence, theta, noise_level=0.0, stimuli_present=True):
     theta = theta + noise_level * torch.randn_like(theta)
-    item_num = strength.shape[0]
+    item_num = presence.shape[0]
     u_0 = torch.zeros(2 * item_num)
     for i in range(item_num):
-        u_0[2 * i] = strength[i] * torch.cos(theta[i])
-        u_0[2 * i + 1] = strength[i] * torch.sin(theta[i])
+        u_0[2 * i] = presence[i] * torch.cos(theta[i])
+        u_0[2 * i + 1] = presence[i] * torch.sin(theta[i])
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
@@ -49,16 +51,17 @@ def memory_loss(F, r, u_0, lambda_reg=0.1):
     activation_penalty = lambda_reg * torch.norm(r, p=1)
     return error_loss + activation_penalty, activation_penalty
 
-def memory_loss_integral(F, r_list, u_0, lambda_reg=0.1, dt=0.1):
+def memory_loss_integral(F, r_list, u_0, presence, lambda_reg=0.1, dt=0.1):
     total_error_loss = 0.0
     total_activation_penalty = 0.0
     for r_t in r_list:
-        u_hat = F @ r_t
-        error = u_0 - u_hat
+        u_hat = decode(F,r_t)
+        error = u_0 - u_hat * presence.repeat_interleave(2)
+        
         total_error_loss += torch.norm(error, p=2) ** 2
         total_activation_penalty += torch.norm(r_t, p=1)
-    total_activation_penalty = lambda_reg * total_activation_penalty / len(r_list)
-    total_error_loss = dt * total_error_loss / len(r_list)
+    total_activation_penalty = lambda_reg * total_activation_penalty / len(r_list) / F.shape[1] # Find average firing rate over all time step and neurons
+    total_error_loss = total_error_loss / len(r_list) / torch.sum(presence) # average over all time step and presented items
     total_loss = total_error_loss + total_activation_penalty
     return total_loss, total_activation_penalty
 
@@ -70,7 +73,7 @@ def extract_orientation(decoded_memory):
 
 # Model parameters
 max_item_num = 8
-hidden_size = 50
+num_neurons = 50
 tau = 10
 dt = 1
 encode_noise = 0.0
@@ -85,35 +88,35 @@ item_num = 2
 
 # Training parameters
 train_rnn = True
-num_epochs = 100
+num_epochs = 50
 eta = 0.05 # learning_rate
-lambda_reg = 0.1 # coeff for activity penalty
-num_trials = 20 # Number of trials per epoch
+lambda_reg = 0.01 # coeff for activity penalty
+num_trials = 200 # Number of trials per epoch
 # num_cores = 2
 
 # Run a single trial, calculates and returns the loss and activation penalty
-def run_a_trial(model, input_item, input_theta):
-    r = torch.zeros(hidden_size)
+def run_a_trial(model, input_presence, input_theta):
+    r = torch.zeros(num_neurons)
     r_list = []
 
     # Simulate the RNN over the time steps
     for step in range(simul_steps):
         time = step * dt
-        u_t = generate_input(input_item, input_theta, stimuli_present=(time < T_stimi))
+        u_t = generate_input(input_presence, input_theta, stimuli_present=(time < T_stimi))
         r = model(r, u_t)
         if time > (T_stimi + T_delay):
             r_list.append(r.clone())
 
     # Calculate the memory loss for this trial
-    u_0 = generate_input(input_item, input_theta, stimuli_present=True)
-    trial_loss, activ_penal = memory_loss_integral(model.F, r_list, u_0, lambda_reg=lambda_reg, dt=dt)
+    u_0 = generate_input(input_presence, input_theta, stimuli_present=True)
+    trial_loss, activ_penal = memory_loss_integral(model.F, r_list, u_0, input_presence, lambda_reg=lambda_reg, dt=dt)
     return trial_loss, activ_penal
 
 
 def main():
     # Create the RNN model
-    model = RNNMemoryModel(max_item_num=max_item_num, hidden_size=hidden_size, tau=tau, dt=dt, noise_level=process_noise)
-    model.load_state_dict(torch.load('model_weights.pth')) # to continue training
+    model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, tau=tau, dt=dt, noise_level=process_noise)
+    # model.load_state_dict(torch.load('model_weights.pth')) # to continue training
 
     if train_rnn:
         optimizer = optim.Adam(model.parameters(), lr=eta)
@@ -124,13 +127,13 @@ def main():
                 total_activ_penal = 0
 
                 # Generate inputs for each trial beforehand
-                input_items = torch.zeros(num_trials, max_item_num)
+                input_presence = torch.zeros(num_trials, max_item_num)
                 one_hot_indices = torch.stack([torch.randperm(max_item_num)[:item_num] for _ in range(num_trials)]) # ensuring no repeating indices in each trial
-                input_items.scatter_(1, one_hot_indices, 1)
+                input_presence.scatter_(1, one_hot_indices, 1)
                 input_thetas = (torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi
 
                 # Run trials in parallel - not implemented yet :(
-                results = [run_a_trial(model, input_items[i], input_thetas[i]) for i in range(num_trials)]
+                results = [run_a_trial(model, input_presence[i], input_thetas[i]) for i in range(num_trials)]
 
                 # Accumulate results
                 for trial_loss, activ_penal in results:
@@ -158,31 +161,34 @@ def main():
         torch.save(model.state_dict(), 'model_weights.pth')
         
     # Load the trained model for evaluation
-    model = RNNMemoryModel(max_item_num=max_item_num, hidden_size=hidden_size, tau=tau, dt=dt, noise_level=process_noise)
+    model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, tau=tau, dt=dt, noise_level=process_noise)
     model.load_state_dict(torch.load('model_weights.pth'))
     model.eval()  # Set to evaluation mode if not training
 
-    r = torch.zeros(hidden_size)
+    r = torch.zeros(num_neurons)
     decoded_orientations_after = []
 
-    strength = torch.tensor([1, 0.0, 0.0, 0, 0, 1, 0, 0])
-    theta = torch.tensor([-1, 0.0, 0.0, 0.0, 0, 0, 0, 0])
+    presence = torch.tensor([1, 0.0, 0.0, 0, 0, 1, 0, 0])
+    theta = torch.tensor([1.4, 0.0, 0.0, 0.0, 0, 0, 0, 0])
 
     for step in range(simul_steps):
         time = step * dt
-        u_t = generate_input(strength, theta, noise_level=encode_noise, stimuli_present=(time < T_stimi))
+        u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(time < T_stimi))
         r = model(r, u_t)
-        decoded_memory = model.decode(r)
+        decoded_memory = decode(model.F,r)
         orientation = extract_orientation(decoded_memory)  # Get orientation from decoded memory
         decoded_orientations_after.append(orientation[0].item())  # Store only the first item’s orientation
 
     # Plot the decoded memory orientation vs. time
     plt.figure(figsize=(10, 6))
-    plt.plot(range(simul_steps), decoded_orientations_after, marker='o', linestyle='-', color='b')
+    time_steps = [step * dt for step in range(simul_steps)]
+    plt.plot(time_steps, decoded_orientations_after, marker='o', linestyle='-', color='b')
+    plt.axvspan(0, T_stimi, color='beige', alpha=0.3, label="Stimulus period")
     plt.title('Decoded Memory Orientation vs. Time')
     plt.xlabel('Time Steps')
     plt.ylabel('Orientation (radians)')
     plt.grid(True)
+    plt.legend()  # To display the label in a legend if desired
     plt.show()
 
 
