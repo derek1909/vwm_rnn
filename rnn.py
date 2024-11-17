@@ -18,7 +18,7 @@ class RNNMemoryModel(nn.Module):
         # Learnable parameters
         self.W = nn.Parameter(torch.randn(num_neurons, num_neurons) / num_neurons**0.5) 
         self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2)*10)
-        self.b = nn.Parameter(torch.randn(num_neurons, 1))
+        # self.b = nn.Parameter(torch.randn(num_neurons, 1))
         self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons) / num_neurons**0.5)
 
     def activation_function(self, x):
@@ -28,7 +28,7 @@ class RNNMemoryModel(nn.Module):
         # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
         r = r.T # (trial,neuron) -> (neuron,trial) 
         u = u.T # (trial,input) -> (input,trial) 
-        r_dot = (-r + self.activation_function(self.W @ r + self.B @ u + self.b)) / self.tau
+        r_dot = (-r + self.activation_function(self.W @ r + self.B @ u)) / self.tau
         r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
         return r.T
     
@@ -49,7 +49,7 @@ def generate_input(presence, theta, noise_level=0.0, stimuli_present=True):
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
-def memory_loss_integral(F, r_stack, u_0, presence, lambda_reg=0.1):
+def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
     # Vectorized memory loss over all time steps and trials
     # r_stack = (steps, trials, neurons)
     # u_0 = (trials, max_items*2)
@@ -74,35 +74,36 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_reg=0.1):
 
 # Model parameters
 max_item_num = 1
-num_neurons = 50
+num_neurons = 64
 tau = 50
-dt = 0.2
-encode_noise = 0.0
-process_noise = 0.05
+dt = 5
+encode_noise = 0.001
+process_noise = 0.001
 decode_noise = 0.0
-T_init = 200
-T_stimi = 600
+T_init = 100
+T_stimi = 400
 T_delay = 200
-T_decode = 1000
+T_decode = 800
 T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
-item_num = max_item_num
+item_num = 1
 
 # Training parameters
 train_rnn = True
-num_epochs = 500
-eta = 0.0001 # learning_rate
-lambda_reg = 0.0005 # coeff for activity penalty
+num_epochs = 200
+eta = 1e-4 # learning_rate
+lambda_reg = 5e-5 # coeff for activity penalty
 lambda_err = 1.0 # coeff for error penalty
-num_trials = 128 # Number of trials per epoch
+num_trials = 64 # Number of trials per epoch
 
 def main():
     model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, tau=tau, dt=dt, noise_level=process_noise)
-    # model.load_state_dict(torch.load('model_weights.pth')) # to continue training
+    model.load_state_dict(torch.load('model_weights.pth')) # to continue training
+    input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
 
     if train_rnn:
         optimizer = optim.Adam(model.parameters(), lr=eta)
-        with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
+        with tqdm(total=num_epochs, desc="Training Progress", unit=" epoch") as pbar_epoch:
             for epoch in range(num_epochs):
                 optimizer.zero_grad()
                 total_loss = 0
@@ -114,7 +115,8 @@ def main():
                 input_presence = input_presence.scatter(1, one_hot_indices, 1)
 
                 # Generate input_thetas with requires_grad=True
-                input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+                # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+                # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
 
                 # Initialize hidden states and collect activations for each time step
                 r = torch.zeros(num_trials, num_neurons)
@@ -131,22 +133,22 @@ def main():
                 # Calculate loss over all trials and time steps
                 r_stack = torch.stack(r_list)
                 u_0 = generate_input(input_presence, input_thetas, stimuli_present=True) # u_0 has no noise
-                total_loss, total_activ_penal = memory_loss_integral(model.F, r_stack, u_0, input_presence, lambda_reg=lambda_reg)
+                total_loss, total_activ_penal = memory_loss_integral(model.F, r_stack, u_0, input_presence, lambda_err=lambda_err, lambda_reg=lambda_reg)
                 total_loss.backward()
 
-                for name, param in model.named_parameters():
-                    if param.grad is None:
-                        print(f"{name} has no gradient.")
-                    else:
-                        print(f"{name} gradient norm: {param.grad.norm()}")                
+                # for name, param in model.named_parameters():
+                #     if param.grad is None:
+                #         print(f"{name} has no gradient.")
+                #     else:
+                #         print(f"{name} gradient norm: {param.grad.norm()}")                
         
         
         # Update model parameters
                 optimizer.step()
 
                 pbar_epoch.set_postfix({
-                    "Error loss": f"{(total_loss - total_activ_penal):.4f}",
-                    "Active penalty": f"{total_activ_penal:.4f}"
+                    "Error": f"{(total_loss - total_activ_penal):.4f}",
+                    "Activation": f"{total_activ_penal/lambda_reg:.4f}"
                 })
 
                 pbar_epoch.update(1)
@@ -161,9 +163,13 @@ def main():
     r = torch.zeros(1,num_neurons)
     decoded_orientations_after = []
 
-    angle_target = 2.2
-    # presence = torch.tensor([1, 0.0, 0.0, 0, 0, 1, 0, 0]).reshape(1,max_item_num)
-    # theta = torch.tensor([angle_target, 0.0, 0.0, 0.0, 0, -1, 0, 0]).reshape(1,max_item_num)    
+    angle_target = -1.1
+    item_idx = 0
+
+    # presence = torch.zeros(1,max_item_num)
+    # presence[0,item_idx] = 1
+    # theta = torch.ones(1,max_item_num) * angle_target
+
     presence = torch.tensor([1,]).reshape(1,max_item_num)
     theta = torch.tensor([angle_target,]).reshape(1,max_item_num)
 
@@ -175,7 +181,7 @@ def main():
         decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
         orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
 
-        decoded_orientations_after.append(orientation[0,0].item())  # Store only the first item’s orientation
+        decoded_orientations_after.append(orientation[0,item_idx].item())  # Store only the first item’s orientation
 
     # Plot the decoded memory orientation vs. time
     plt.figure(figsize=(10, 6))
