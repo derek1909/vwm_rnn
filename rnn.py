@@ -89,21 +89,35 @@ simul_steps = int(T_simul/dt)
 item_num = 1
 
 # Training parameters
-train_rnn = True
-num_epochs = 200
-eta = 1e-4 # learning_rate
-lambda_reg = 5e-5 # coeff for activity penalty
-lambda_err = 1.0 # coeff for error penalty
-num_trials = 64 # Number of trials per epoch
+train_rnn = True  # Set to True if training is required
+train_from_scratch = False
+num_epochs = 500
+eta = 2e-4  # learning_rate
+lambda_reg = 2e-5  # coeff for activity penalty
+lambda_err = 1.0  # coeff for error penalty
+num_trials = 64  # Number of trials per epoch
+
 
 def main():
-    model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, tau=tau, dt=dt, noise_level=process_noise)
-    model.load_state_dict(torch.load('model_weights.pth')) # to continue training
-    input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
-
+    model = RNNMemoryModel(
+        max_item_num=max_item_num,
+        num_neurons=num_neurons,
+        tau=tau,
+        dt=dt,
+        noise_level=process_noise
+    )
+    if not train_from_scratch:
+        model.load_state_dict(torch.load('model_weights.pth')) # to continue training
+    
+    # Generate input_thetas
+    # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
     if train_rnn:
         optimizer = optim.Adam(model.parameters(), lr=eta)
-        with tqdm(total=num_epochs, desc="Training Progress", unit=" epoch") as pbar_epoch:
+        error_per_epoch = []
+        activation_penalty_per_epoch = []
+
+        with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
             for epoch in range(num_epochs):
                 optimizer.zero_grad()
                 total_loss = 0
@@ -114,10 +128,6 @@ def main():
                 one_hot_indices = torch.stack([torch.randperm(max_item_num)[:item_num] for _ in range(num_trials)])
                 input_presence = input_presence.scatter(1, one_hot_indices, 1)
 
-                # Generate input_thetas with requires_grad=True
-                # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
-                # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
-
                 # Initialize hidden states and collect activations for each time step
                 r = torch.zeros(num_trials, num_neurons)
                 r_list = []
@@ -125,78 +135,126 @@ def main():
                 # Simulate the RNN across all trials and time steps
                 for step in range(simul_steps):
                     time = step * dt
-                    u_t = generate_input(input_presence, input_thetas, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
+                    u_t = generate_input(
+                        input_presence,
+                        input_thetas,
+                        noise_level=encode_noise,
+                        stimuli_present=(T_init < time < T_stimi + T_init)
+                    )
                     r = model(r, u_t)
-                    if time > (T_stimi + T_delay +T_init):
+                    if time > (T_stimi + T_delay + T_init):
                         r_list.append(r.clone())
 
                 # Calculate loss over all trials and time steps
                 r_stack = torch.stack(r_list)
-                u_0 = generate_input(input_presence, input_thetas, stimuli_present=True) # u_0 has no noise
-                total_loss, total_activ_penal = memory_loss_integral(model.F, r_stack, u_0, input_presence, lambda_err=lambda_err, lambda_reg=lambda_reg)
+                u_0 = generate_input(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
+                total_loss, total_activ_penal = memory_loss_integral(
+                    model.F, r_stack, u_0, input_presence,
+                    lambda_err=lambda_err, lambda_reg=lambda_reg
+                )
                 total_loss.backward()
 
-                # for name, param in model.named_parameters():
-                #     if param.grad is None:
-                #         print(f"{name} has no gradient.")
-                #     else:
-                #         print(f"{name} gradient norm: {param.grad.norm()}")                
-        
-        
-        # Update model parameters
+                # Update model parameters
                 optimizer.step()
 
-                pbar_epoch.set_postfix({
-                    "Error": f"{(total_loss - total_activ_penal):.4f}",
-                    "Activation": f"{total_activ_penal/lambda_reg:.4f}"
-                })
+                # Track errors and penalties
+                error_per_epoch.append((total_loss - total_activ_penal).item())
+                activation_penalty_per_epoch.append((total_activ_penal / lambda_reg).item())
 
+                # Update progress bar
+                pbar_epoch.set_postfix({
+                    "Error": f"{error_per_epoch[-1]:.4f}",
+                    "Activation": f"{activation_penalty_per_epoch[-1]:.4f}"
+                })
                 pbar_epoch.update(1)
 
         torch.save(model.state_dict(), 'model_weights.pth')
+
+        # Plot error and activation penalty
+        plt.figure(1, figsize=(10, 6))
+        plt.plot(error_per_epoch, label="Error", marker='o')
+        plt.plot(activation_penalty_per_epoch, label="Activation Penalty", marker='x')
+        plt.title('Training Error and Activation Penalty vs Epoch')
+        plt.xlabel('Epoch')
+        plt.ylabel('Loss Value')
+        plt.legend()
+        plt.grid(True)
         
     # Load the trained model for evaluation
     model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, tau=tau, dt=dt, noise_level=process_noise)
     model.load_state_dict(torch.load('model_weights.pth'))
     model.eval()  # Set to evaluation mode if not training
 
-    r = torch.zeros(1,num_neurons)
-    decoded_orientations_after = []
-
-    angle_target = -1.1
+    r = torch.zeros(1, num_neurons)
+    angle_targets = [-1.9, -0.1, 0.6, 1.8]  # List of different target angles to test
     item_idx = 0
 
-    # presence = torch.zeros(1,max_item_num)
-    # presence[0,item_idx] = 1
-    # theta = torch.ones(1,max_item_num) * angle_target
+    # Create a dictionary to store decoded orientations for each target angle
+    decoded_orientations_dict = {}
 
-    presence = torch.tensor([1,]).reshape(1,max_item_num)
-    theta = torch.tensor([angle_target,]).reshape(1,max_item_num)
+    presence = torch.tensor([1,]).reshape(1, max_item_num)
 
-    for step in range(simul_steps):
-        time = step * dt
-        u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
-        r = model(r, u_t)
-        decoded_memory = decode(model.F,r)
-        decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
-        orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
+    for angle_target in angle_targets:
+        decoded_orientations_after = []
+        theta = torch.tensor([angle_target,]).reshape(1, max_item_num)
+        r = torch.zeros(1, num_neurons)  # Reset the RNN state for each test case
 
-        decoded_orientations_after.append(orientation[0,item_idx].item())  # Store only the first item’s orientation
+        for step in range(simul_steps):
+            time = step * dt
+            u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
+            r = model(r, u_t)
+            decoded_memory = decode(model.F, r)
+            decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
+            orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
 
-    # Plot the decoded memory orientation vs. time
-    plt.figure(figsize=(10, 6))
+            decoded_orientations_after.append(orientation[0, item_idx].item())  # Store only the first item’s orientation
+
+        # Store the results for the current angle target
+        decoded_orientations_dict[angle_target] = decoded_orientations_after
+
+    # Plot the results for all angle targets
+    plt.figure(2, figsize=(10, 6))
     time_steps = torch.tensor([step * dt for step in range(simul_steps)])
-    plt.plot(time_steps, decoded_orientations_after, marker='o', linestyle='-', color='b',label="response")
-    plt.plot(time_steps, angle_target + time_steps*0, linestyle='-', color='r',label="target")
-    plt.axvspan(T_init, T_stimi + T_init, color='orange', alpha=0.3, label="Stimulus period")
-    plt.title('Decoded Memory Orientation vs. Time')
+
+    # Plot response lines and target lines
+    for angle_target, decoded_orientations in decoded_orientations_dict.items():
+        # Plot the response line
+        line, = plt.plot(
+            time_steps,
+            decoded_orientations,
+            marker='o',
+            linestyle='-',
+            markersize=4,  # Set the marker size
+            color=None  # Automatically assign a unique color
+        )
+        # Plot the target line
+        plt.axhline(
+            y=angle_target,
+            color=line.get_color(),  # Use the same color as the response line
+            linestyle='--'
+        )
+
+    response_legend = plt.Line2D(
+        [0], [0], color='blue', marker='o', linestyle='-', markersize=4, label='Response'
+    )
+    target_legend = plt.Line2D(
+        [0], [0], color='blue', linestyle='--', label='Target'
+    )
+    stimulus_period_legend = plt.Line2D(
+        [0], [0], color='orange', lw=4, alpha=0.3, label="Stimulus period"
+    )
+
+
+    plt.axvspan(T_init, T_stimi + T_init, color='orange', alpha=0.3)
+    plt.title('Decoded Memory Orientations vs. Time')
     plt.xlabel('Time Steps')
     plt.ylabel('Orientation (radians)')
     plt.grid(True)
-    plt.legend()  # To display the label in a legend if desired
+
+    # Combine and display the simplified legend
+    plt.legend(handles=[stimulus_period_legend, response_legend, target_legend], loc='upper right')
+    # plt.legend()
     plt.show()
-
-
 
 if __name__ == "__main__":
     main()
