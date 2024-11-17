@@ -3,16 +3,8 @@ import torch.optim as optim
 from tqdm import tqdm
 from rnn import *
 from config import *
+from utils import save_model_and_history, generate_input
 
-def generate_input(presence, theta, noise_level=0.0, stimuli_present=True):
-    theta = theta + noise_level * torch.randn_like(theta)
-    max_item_num = presence.shape[1]
-    u_0 = torch.zeros(presence.size(0), 2 * max_item_num)
-    for i in range(max_item_num):
-        u_0[:, 2 * i] = presence[:, i] * torch.cos(theta[:, i])
-        u_0[:, 2 * i + 1] = presence[:, i] * torch.sin(theta[:, i])
-    u_t = u_0 * (1 if stimuli_present else 0) 
-    return u_t
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
     # Vectorized memory loss over all time steps and trials
@@ -29,15 +21,16 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
     total_loss = error + activation_penalty
     return total_loss, activation_penalty
 
-def train(model):
+def train(model, model_dir, history=None):
     optimizer = optim.Adam(model.parameters(), lr=eta)
-    error_per_epoch = []
-    activation_penalty_per_epoch = []
+
+    # If no history is provided, initialize empty history
+    if history is None:
+        history = {"error_per_epoch": [], "activation_penalty_per_epoch": []}
 
     # Generate input_thetas
     # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
-    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
-
+    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
 
     with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
         for epoch in range(num_epochs):
@@ -49,6 +42,8 @@ def train(model):
             input_presence = torch.zeros(num_trials, max_item_num, requires_grad=True)
             one_hot_indices = torch.stack([torch.randperm(max_item_num)[:item_num] for _ in range(num_trials)])
             input_presence = input_presence.scatter(1, one_hot_indices, 1)
+
+            input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Initialize hidden states and collect activations for each time step
             r = torch.zeros(num_trials, num_neurons)
@@ -80,15 +75,17 @@ def train(model):
             optimizer.step()
 
             # Track errors and penalties
-            error_per_epoch.append((total_loss - total_activ_penal).item())
-            activation_penalty_per_epoch.append((total_activ_penal / lambda_reg).item())
+            history["error_per_epoch"].append((total_loss - total_activ_penal).item())
+            history["activation_penalty_per_epoch"].append((total_activ_penal / lambda_reg).item())
 
             # Update progress bar
             pbar_epoch.set_postfix({
-                "Error": f"{error_per_epoch[-1]:.4f}",
-                "Activation": f"{activation_penalty_per_epoch[-1]:.4f}"
+                "Error": f"{history['error_per_epoch'][-1]:.4f}",
+                "Activation": f"{history['activation_penalty_per_epoch'][-1]:.4f}"
             })
             pbar_epoch.update(1)
 
-    torch.save(model.state_dict(), 'models/model_weights.pth')
-    return error_per_epoch, activation_penalty_per_epoch
+            # Save model and history after each epoch
+            save_model_and_history(model, history, model_dir)
+
+    return history

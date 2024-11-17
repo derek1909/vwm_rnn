@@ -1,4 +1,6 @@
 import torch
+import os
+import json
 
 from rnn import *
 from config import *
@@ -8,14 +10,24 @@ from utils import *
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise)
-    if train_rnn:
-        if not train_from_scratch:
-            model.load_state_dict(torch.load('models/model_weights.pth'))
-        error_per_epoch, activation_penalty_per_epoch = train(model)
-        plot_training_curves(error_per_epoch, activation_penalty_per_epoch)
+
+    # Load model and history if training from a previous checkpoint
+    if not train_from_scratch:
+        model, history = load_model_and_history(model, model_dir)
     else:
-        model.load_state_dict(torch.load('models/model_weights.pth'))
-    
+        history = None  # Start fresh
+
+    # Train the model
+    if train_rnn:
+        history = train(model, model_dir, history)
+
+    # Plot training curves
+    if history:
+        plot_training_curves(history["error_per_epoch"], history["activation_penalty_per_epoch"])
+
+    # Plot a few trials
     angle_targets = [-1.9, -0.1, 0.6, 1.8]
     decoded_orientations = evaluate(model, angle_targets)
     plot_results(decoded_orientations)
+
+    plt.show()
