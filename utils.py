@@ -71,36 +71,48 @@ def plot_results(decoded_orientations_dict):
     plt.legend(handles=[stimulus_period_legend, decode_period_legend, response_legend, target_legend], loc='upper right')
     # plt.show()
 
-def plot_training_curves(error_per_epoch, activation_penalty_per_epoch):
-
+def plot_training_curves(error_per_epoch, error_std_per_epoch, activation_per_epoch):
+    """
+    Plots training curves for error (with error bar) and activation penalty.
+    """
     # Create figure and axes
     fig, ax1 = plt.subplots(figsize=(5, 4))
-    epochs = range(1, len(error_per_epoch) + 1)
+    epochs = np.arange(1, len(error_per_epoch) + 1)
 
-    # Plot Error curve on the left y-axis
-    ax1.plot(epochs, error_per_epoch, label="Error", color='blue', marker='o', markersize=2)
+    # Plot Error curve on the left y-axis with error bars
+    error_color = 'blue'
+    ax1.plot(epochs, error_per_epoch, label="Error", color=error_color, marker='o', markersize=2)
+    ax1.fill_between(
+        epochs,
+        np.array(error_per_epoch) - np.array(error_std_per_epoch),
+        np.array(error_per_epoch) + np.array(error_std_per_epoch),
+        color=error_color,
+        alpha=0.2,
+        label="Error (± std)"
+    )
     ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Error Loss', color='blue')
-    ax1.tick_params(axis='y', labelcolor='blue')
+    ax1.set_ylabel('Error Loss', color=error_color)
+    ax1.tick_params(axis='y', labelcolor=error_color)
     ax1.grid(True)
 
-    # Calculate and annotate the average of the last 20 Error values
+    # Calculate and annotate the average of the last 50 Error values
     avg_error = np.mean(error_per_epoch[-50:])
-    ax1.axhline(y=avg_error, color='blue', linestyle='--', alpha=0.7)
-    ax1.text(len(epochs), avg_error, f"End: {avg_error:.3f}", color='blue', ha='left', va='center')
+    ax1.axhline(y=avg_error, color=error_color, linestyle='--', alpha=0.7)
+    ax1.text(len(epochs), avg_error, f"End: {avg_error:.3f}", color=error_color, ha='left', va='center')
 
     # Create a second y-axis for Activation Penalty
+    activation_color = 'orange'
     ax2 = ax1.twinx()
-    ax2.plot(epochs, activation_penalty_per_epoch, label="Activation Penalty", color='orange', marker='o', markersize=2)
-    ax2.set_ylabel('Activation Penalty', color='orange')
-    ax2.tick_params(axis='y', labelcolor='orange')
+    ax2.plot(epochs, activation_per_epoch, label="Activation", color=activation_color, marker='o', markersize=2)
+    ax2.set_ylabel('Ave Firing Rate (Hz)', color=activation_color)
+    ax2.tick_params(axis='y', labelcolor=activation_color)
 
-    # Calculate and annotate the average of the last 20 Activation Penalty values
-    avg_penalty = np.mean(activation_penalty_per_epoch[-50:])
-    ax2.axhline(y=avg_penalty, color='orange', linestyle='--', alpha=0.7)
-    ax2.text(len(epochs), avg_penalty, f"End: {avg_penalty:.3f}", color='orange', ha='left', va='center')
+    # Calculate and annotate the average of the last 50 Activation Penalty values
+    avg_penalty = np.mean(activation_per_epoch[-50:])
+    ax2.axhline(y=avg_penalty, color=activation_color, linestyle='--', alpha=0.7)
+    ax2.text(len(epochs), avg_penalty, f"End: {avg_penalty:.3f}", color=activation_color, ha='left', va='center')
 
-    plt.title('Training Error and Activation Penalty vs Epoch')
+    plt.title('Training Error and Activation vs Epoch')
     fig.tight_layout()
     # plt.show()
 
@@ -133,6 +145,12 @@ def load_model_and_history(model, model_dir, model_name="model_path.pth", histor
         with open(history_path, 'r') as f:
             history = json.load(f)
     else:
-        history = {"error_per_epoch": [], "activation_penalty_per_epoch": []}
+        history = {
+            "error_per_epoch": [],  # Overall mean error per epoch
+            "error_std_per_epoch": [],  # std of overall error per epoch
+            "activation_per_epoch": [],
+            "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
+            "group_std": [[] for _ in item_num],  # List to store std of errors for each group
+        }
 
     return model, history

@@ -7,26 +7,46 @@ from utils import save_model_and_history, generate_input
 
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
-    # Vectorized memory loss over all time steps and trials
-    # r_stack = (steps, trials, neurons)
-    # u_0 = (trials, max_items*2)
-    # presence = (trials, max_items)
+    """
+    Calculates the total loss, activation penalty, and variance of group error.
+    * r_stack = (steps, trials, neurons)
+    * u_0 = (trials, max_items*2)
+    * presence = (trials, max_items)
+    """
     num_steps, num_trials, num_neurons = r_stack.shape
     u_hat_stack = decode(F, r_stack.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
 
-    error = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2) / torch.sum(presence,dim=1).unsqueeze(0).unsqueeze(-1) #average over num of presented item (might be different for each trial)
-    error = lambda_err * error.sum() / (num_steps * num_trials) # average over trials and steps
-    
+    # Calculate the squared error for each trial
+    # (steps,trials,items) -> (trials,)
+    error_per_trial = (
+        (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2)
+        / torch.sum(presence, dim=1).unsqueeze(0).unsqueeze(-1)  # Normalize by number of items per trial
+    ).sum(dim=(0, 2)) / num_steps  # average over time steps and dimensions
+
+    # Mean error across all trials
+    mean_error = lambda_err * error_per_trial.mean()
+
+    # Variance of the error across trials (actually devided by trials-1)
+    variance_error = error_per_trial.var()
+
+    # Activation penalty
     activation_penalty = lambda_reg * r_stack.abs().mean()
-    total_loss = error + activation_penalty
-    return total_loss, activation_penalty
+
+    total_loss = mean_error + activation_penalty
+    return total_loss, activation_penalty, mean_error, variance_error
 
 def train(model, model_dir, history=None):
     optimizer = optim.Adam(model.parameters(), lr=eta)
 
     # If no history is provided, initialize empty history
     if history is None:
-        history = {"error_per_epoch": [], "activation_penalty_per_epoch": []}
+        history = {
+            "error_per_epoch": [],  # Overall mean error per epoch
+            "error_std_per_epoch": [],  # std of overall error per epoch
+            "activation_per_epoch": [],
+            "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
+            "group_std": [[] for _ in item_num],  # List to store std of errors for each group
+        }
 
     # Generate input_thetas
     # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
@@ -39,8 +59,6 @@ def train(model, model_dir, history=None):
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
 
     with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
-        trial_counter = 0  # Initialize a counter for trials
-
         for epoch in range(num_epochs):
             optimizer.zero_grad()
             total_loss = 0
@@ -52,7 +70,7 @@ def train(model, model_dir, history=None):
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
                 one_hot_indices = torch.stack([torch.randperm(max_item_num)[:item_num[i]] for _ in range(count)])
-                input_presence_temp = input_presence.clone()  # Create a detached clone
+                input_presence_temp = input_presence.clone()
                 input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
                 input_presence = input_presence_temp
                 start_index = end_index
@@ -76,35 +94,49 @@ def train(model, model_dir, history=None):
                 if time > (T_stimi + T_delay + T_init):
                     r_list.append(r.clone())
 
-            # Calculate loss over all trials and time steps
             r_stack = torch.stack(r_list)
             u_0 = generate_input(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
-            total_loss, total_activ_penal = memory_loss_integral(
+
+            # Calculate total loss and group-wise errors
+            total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(
                 model.F, r_stack, u_0, input_presence,
                 lambda_err=lambda_err, lambda_reg=lambda_reg
             )
-            total_loss.backward()
+            history["error_per_epoch"].append(total_error.item())
+            history["error_std_per_epoch"].append(total_error_var.sqrt().item())
+            history["activation_per_epoch"].append((total_activ_penal / lambda_reg).item())
 
-            # Update model parameters
+            total_loss.backward()
             optimizer.step()
 
-            # Track errors and penalties
-            history["error_per_epoch"].append((total_loss - total_activ_penal).item())
-            history["activation_penalty_per_epoch"].append((total_activ_penal / lambda_reg).item())
+            # Calculate group-wise mean error and variance
+            start_index = 0
+            for i, count in enumerate(trial_counts):
+                end_index = start_index + count
+                group_r_stack = r_stack[:, start_index:end_index]
+                group_u_0 = u_0[start_index:end_index]
+                group_presence = input_presence[start_index:end_index]
+
+                _, _, group_error, group_variance = memory_loss_integral(
+                    model.F, group_r_stack, group_u_0, group_presence,
+                    lambda_err=lambda_err, lambda_reg=lambda_reg
+                )
+
+                history["group_errors"][i].append(group_error.item())
+                history["group_std"][i].append(group_variance.sqrt().item())  # Record std (sqrt of variance)
+
+                start_index = end_index
+
 
             # Update progress bar
             pbar_epoch.set_postfix({
                 "Error": f"{history['error_per_epoch'][-1]:.4f}",
-                "Activation": f"{history['activation_penalty_per_epoch'][-1]:.4f}"
+                "Activation": f"{history['activation_per_epoch'][-1]:.4f}"
             })
             pbar_epoch.update(1)
 
-            # Increment trial counter
-            trial_counter += num_trials
-
-            # Save model and history every 50 trials
-            if trial_counter >= 50:
+            # Save model and history every 50 epochs
+            if epoch%50 == 0:
                 save_model_and_history(model, history, model_dir)
-                trial_counter = 0  # Reset trial counter
 
     return history
