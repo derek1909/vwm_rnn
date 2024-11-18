@@ -1,10 +1,11 @@
 # Model parameters
-max_item_num = 1
+max_item_num = 4
+item_num = [1,2,3,4]
 num_neurons = 64
 tau = 50
 dt = 5
-encode_noise = 0.0 # rad
-process_noise = 0.0 # Hz
+encode_noise = 0.01 # rad
+process_noise = 0.5 # Hz
 decode_noise = 0.0
 T_init = 0
 T_stimi = 400
@@ -12,20 +13,19 @@ T_delay = 0
 T_decode = 800
 T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
-item_num = 1
 
 # Training parameters
 train_rnn = True  # Set to True if training is required
 train_from_scratch = True
-num_epochs = 2100
-eta = 2e-4  # learning_rate
+num_epochs = 3000
+eta = 5e-5  # learning_rate
 lambda_reg = 2e-5  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
 num_trials = 64  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"
-rnn_name = "random_imput_per_epoch-no_noise"
+rnn_name = "multiple_item"
 model_dir = f"rnns/{rnn_name}"
 
 

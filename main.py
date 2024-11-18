@@ -25,9 +25,9 @@ if __name__ == "__main__":
     if history:
         plot_training_curves(history["error_per_epoch"], history["activation_penalty_per_epoch"])
 
-    # Plot a few trials
-    angle_targets = [-1.9, -0.1, 0.6, 1.8]
-    decoded_orientations = evaluate(model, angle_targets)
-    plot_results(decoded_orientations)
+    # # Plot a few trials
+    # angle_targets = [-1.9, -0.1, 0.6, 1.8]
+    # decoded_orientations = evaluate(model, angle_targets)
+    # plot_results(decoded_orientations)
 
     plt.show()
