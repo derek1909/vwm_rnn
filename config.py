@@ -16,12 +16,12 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = True  # Set to True if training is required
-train_from_scratch = True
-num_epochs = 3000
-eta = 5e-5  # learning_rate
+train_from_scratch = False
+num_epochs = 10
+eta = 1e-4  # learning_rate
 lambda_reg = 2e-5  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
-num_trials = 64  # Number of trials per epoch
+num_trials = 128  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"

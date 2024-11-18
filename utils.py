@@ -71,7 +71,7 @@ def plot_results(decoded_orientations_dict):
     plt.legend(handles=[stimulus_period_legend, decode_period_legend, response_legend, target_legend], loc='upper right')
     # plt.show()
 
-def plot_training_curves(error_per_epoch, error_std_per_epoch, activation_per_epoch):
+def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_epoch):
     """
     Plots training curves for error (with error bar) and activation penalty.
     """
@@ -98,7 +98,12 @@ def plot_training_curves(error_per_epoch, error_std_per_epoch, activation_per_ep
     # Calculate and annotate the average of the last 50 Error values
     avg_error = np.mean(error_per_epoch[-50:])
     ax1.axhline(y=avg_error, color=error_color, linestyle='--', alpha=0.7)
-    ax1.text(len(epochs), avg_error, f"End: {avg_error:.3f}", color=error_color, ha='left', va='center')
+    ax1.annotate(
+        f"{avg_error:.3f}",  # Format the annotation to 3 decimal places
+        xy=(epochs[-1], error_per_epoch[-1]),  # Position it at the last epoch's error value
+        xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+        color=error_color, fontsize=9, fontweight="bold"
+    )
 
     # Create a second y-axis for Activation Penalty
     activation_color = 'orange'
@@ -111,9 +116,74 @@ def plot_training_curves(error_per_epoch, error_std_per_epoch, activation_per_ep
     avg_penalty = np.mean(activation_per_epoch[-50:])
     ax2.axhline(y=avg_penalty, color=activation_color, linestyle='--', alpha=0.7)
     ax2.text(len(epochs), avg_penalty, f"End: {avg_penalty:.3f}", color=activation_color, ha='left', va='center')
-
+    ax2.annotate(
+        f"{avg_penalty:.3f}",  # Format the annotation to 3 decimal places
+        xy=(epochs[-1], activation_per_epoch[-1]),  # Position it at the last epoch's error value
+        xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+        color=activation_color, fontsize=9, fontweight="bold"
+    )
+    
     plt.title('Training Error and Activation vs Epoch')
     fig.tight_layout()
+    # plt.show()
+
+def plot_group_training_history(group_errors, group_stds, item_num):
+    """
+    Plots the error and error bars for each group across epochs, with each group in a separate subplot,
+    and annotates the end value for each group.
+
+    Parameters:
+    - group_errors: List of lists, where each sublist contains mean errors for a group over epochs.
+    - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over epochs.
+    - item_num: List of the number of items in each group (e.g., [1, 2, 3, 4] for 4 groups).
+    """
+    num_groups = len(group_errors)
+    epochs = np.arange(1, len(group_errors[0]) + 1)
+
+    fig, axes = plt.subplots(num_groups, 1, figsize=(6, 1.5*num_groups), sharex=True)
+    if num_groups == 1:  # if only one group exists
+        axes = [axes]
+
+    colormap = plt.cm.tab10  # Change colormap if desired
+
+    for i, (errors, stds) in enumerate(zip(group_errors, group_stds)):
+        errors = np.array(errors)
+        stds = np.array(stds)
+        color = colormap(i % 10)  # Ensure color reuse for more than 10 groups
+
+        # Plot each group in its subplot
+        axes[i].plot(
+            epochs, errors, label=f"Items={item_num[i]}",
+            color=color, marker='o', markersize=3
+        )
+        axes[i].fill_between(
+            epochs,
+            errors - stds,
+            errors + stds,
+            color=color,
+            alpha=0.3
+        )
+
+        # Add the end value annotation
+        end_value = np.mean(errors[-50:])
+        axes[i].axhline(y=end_value, color=color, linestyle='--', alpha=0.7)
+        axes[i].annotate(
+            f"{end_value:.3f}",  # Format the annotation to 3 decimal places
+            xy=(epochs[-1], errors[-1]),  # Position it at the last epoch's error value
+            xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+            color=color, fontsize=9, fontweight="bold"
+        )
+
+        # Set labels and titles
+        axes[i].set_ylabel("Error")
+        axes[i].set_title(f"Group {i + 1} (Items={item_num[i]})")
+        axes[i].legend(loc='upper right')
+        axes[i].grid(True)
+
+    # Set the x-axis label for the last subplot
+    axes[-1].set_xlabel("Epochs")
+
+    plt.tight_layout()
     # plt.show()
 
 def save_model_and_history(model, history, model_dir, model_name="model_path.pth", history_name="training_history.json"):

@@ -23,8 +23,8 @@ if __name__ == "__main__":
 
     # Plot training curves
     if history:
-        plot_training_curves(history["error_per_epoch"], history["error_std_per_epoch"], history["activation_per_epoch"])
-
+        plot_training_history(history["error_per_epoch"], history["error_std_per_epoch"], history["activation_per_epoch"])
+        plot_group_training_history(history["group_errors"], history["group_std"], item_num)
     # # Plot a few trials
     # angle_targets = [-1.9, -0.1, 0.6, 1.8]
     # decoded_orientations = evaluate(model, angle_targets)
