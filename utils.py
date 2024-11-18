@@ -48,18 +48,18 @@ def evaluate(model, angle_targets):
     return decoded_orientations_dict
 
 def plot_results(decoded_orientations_dict):
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5,4))
     time_steps = torch.tensor([step * dt for step in range(simul_steps)])
 
     # Plot response lines and target curves
     for angle_target, decoded_orientations in decoded_orientations_dict.items():
-        line, = plt.plot(time_steps, decoded_orientations, marker='o', linestyle='-', markersize=4)
+        line, = plt.plot(time_steps, decoded_orientations, marker='o', linestyle='-', markersize=3)
         plt.axhline(y=angle_target, color=line.get_color(), linestyle='--')
 
     response_legend = plt.Line2D([0], [0], color='blue', marker='o', linestyle='-', markersize=4, label='Response')
     target_legend = plt.Line2D([0], [0], color='blue', linestyle='--', label='Target')
-    stimulus_period_legend = plt.Line2D([0], [0], color='orange', lw=4, alpha=0.15, label="Stimulus period")
-    decode_period_legend = plt.Line2D([0], [0], color='green', lw=4, alpha=0.1, label="Stimulus period")
+    stimulus_period_legend = plt.Line2D([0], [0], color='orange', lw=5, alpha=0.4, label="Stimulus period")
+    decode_period_legend = plt.Line2D([0], [0], color='green', lw=5, alpha=0.3, label="Decoding period")
 
     plt.axvspan(T_init, T_stimi + T_init, color='orange', alpha=0.15)
     plt.axvspan(T_stimi + T_init + T_delay, T_simul, color='green', alpha=0.1)
@@ -71,10 +71,10 @@ def plot_results(decoded_orientations_dict):
     # plt.show()
 
 def plot_training_curves(error_per_epoch, activation_penalty_per_epoch):
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(5,4))
     epochs = range(1, len(error_per_epoch) + 1)
-    plt.plot(epochs, error_per_epoch, label="Error", marker='o')
-    plt.plot(epochs, activation_penalty_per_epoch, label="Activation Penalty", marker='x')
+    plt.plot(epochs, error_per_epoch, label="Error", marker='o',  markersize=2)
+    plt.plot(epochs, activation_penalty_per_epoch, label="Activation Penalty", marker='o',  markersize=2)
     plt.title('Training Error and Activation Penalty vs Epoch')
     plt.xlabel('Epoch')
     plt.ylabel('Loss Value')
