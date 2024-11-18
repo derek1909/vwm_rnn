@@ -2,6 +2,7 @@ import torch
 import matplotlib.pyplot as plt
 import os
 import json
+import numpy as np
 
 from rnn import *
 from config import *
@@ -71,15 +72,36 @@ def plot_results(decoded_orientations_dict):
     # plt.show()
 
 def plot_training_curves(error_per_epoch, activation_penalty_per_epoch):
-    plt.figure(figsize=(5,4))
+
+    # Create figure and axes
+    fig, ax1 = plt.subplots(figsize=(5, 4))
     epochs = range(1, len(error_per_epoch) + 1)
-    plt.plot(epochs, error_per_epoch, label="Error", marker='o',  markersize=2)
-    plt.plot(epochs, activation_penalty_per_epoch, label="Activation Penalty", marker='o',  markersize=2)
+
+    # Plot Error curve on the left y-axis
+    ax1.plot(epochs, error_per_epoch, label="Error", color='blue', marker='o', markersize=2)
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('Error Loss', color='blue')
+    ax1.tick_params(axis='y', labelcolor='blue')
+    ax1.grid(True)
+
+    # Calculate and annotate the average of the last 20 Error values
+    avg_error = np.mean(error_per_epoch[-50:])
+    ax1.axhline(y=avg_error, color='blue', linestyle='--', alpha=0.7)
+    ax1.text(len(epochs), avg_error, f"End: {avg_error:.3f}", color='blue', ha='left', va='center')
+
+    # Create a second y-axis for Activation Penalty
+    ax2 = ax1.twinx()
+    ax2.plot(epochs, activation_penalty_per_epoch, label="Activation Penalty", color='orange', marker='o', markersize=2)
+    ax2.set_ylabel('Activation Penalty', color='orange')
+    ax2.tick_params(axis='y', labelcolor='orange')
+
+    # Calculate and annotate the average of the last 20 Activation Penalty values
+    avg_penalty = np.mean(activation_penalty_per_epoch[-50:])
+    ax2.axhline(y=avg_penalty, color='orange', linestyle='--', alpha=0.7)
+    ax2.text(len(epochs), avg_penalty, f"End: {avg_penalty:.3f}", color='orange', ha='left', va='center')
+
     plt.title('Training Error and Activation Penalty vs Epoch')
-    plt.xlabel('Epoch')
-    plt.ylabel('Loss Value')
-    plt.legend()
-    plt.grid(True)
+    fig.tight_layout()
     # plt.show()
 
 def save_model_and_history(model, history, model_dir, model_name="model_path.pth", history_name="training_history.json"):
