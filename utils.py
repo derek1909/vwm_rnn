@@ -115,7 +115,6 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     # Calculate and annotate the average of the last 50 Activation Penalty values
     avg_penalty = np.mean(activation_per_epoch[-50:])
     ax2.axhline(y=avg_penalty, color=activation_color, linestyle='--', alpha=0.7)
-    ax2.text(len(epochs), avg_penalty, f"End: {avg_penalty:.3f}", color=activation_color, ha='left', va='center')
     ax2.annotate(
         f"{avg_penalty:.3f}",  # Format the annotation to 3 decimal places
         xy=(epochs[-1], activation_per_epoch[-1]),  # Position it at the last epoch's error value
@@ -176,7 +175,7 @@ def plot_group_training_history(group_errors, group_stds, item_num):
 
         # Set labels and titles
         axes[i].set_ylabel("Error")
-        axes[i].set_title(f"Group {i + 1} (Items={item_num[i]})")
+        axes[i].set_title(f"Items={item_num[i]}")
         axes[i].legend(loc='upper right')
         axes[i].grid(True)
 

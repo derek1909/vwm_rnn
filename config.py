@@ -1,6 +1,6 @@
 # Model parameters
-max_item_num = 4
-item_num = [1,2,3,4]
+max_item_num = 8
+item_num = [1,3,5,7]
 num_neurons = 64
 tau = 50
 dt = 5
@@ -16,16 +16,16 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = True  # Set to True if training is required
-train_from_scratch = False
-num_epochs = 10
-eta = 1e-4  # learning_rate
+train_from_scratch = True
+num_epochs = 500
+eta = 5e-5  # learning_rate
 lambda_reg = 2e-5  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
 num_trials = 128  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"
-rnn_name = "multiple_item"
+rnn_name = "tiny_rnn"
 model_dir = f"rnns/{rnn_name}"
 
 

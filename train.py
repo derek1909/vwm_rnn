@@ -18,10 +18,7 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
 
     # Calculate the squared error for each trial
     # (steps,trials,items) -> (trials,)
-    error_per_trial = (
-        (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2)
-        / torch.sum(presence, dim=1).unsqueeze(0).unsqueeze(-1)  # Normalize by number of items per trial
-    ).sum(dim=(0, 2)) / num_steps  # average over time steps and dimensions
+    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2))  / torch.sum(presence, dim=1) / num_steps  # average over time steps and dimensions # Normalize by number of items per trial
 
     # Mean error across all trials
     mean_error = lambda_err * error_per_trial.mean()
@@ -131,7 +128,7 @@ def train(model, model_dir, history=None):
             # Update progress bar
             pbar_epoch.set_postfix({
                 "Error": f"{history['error_per_epoch'][-1]:.4f}",
-                "Activation": f"{history['activation_per_epoch'][-1]:.4f}"
+                "Avg Activ": f"{history['activation_per_epoch'][-1]:.4f}"
             })
             pbar_epoch.update(1)
 
