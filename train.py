@@ -43,11 +43,12 @@ def train(model, model_dir, history=None):
             "activation_per_epoch": [],
             "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
+            "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
         }
 
     # Generate input_thetas
     # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
-    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
+    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
 
     # Split num_trials into len(num_item) groups
     trials_per_group = num_trials // len(item_num)  # Ensure equal split
@@ -72,7 +73,8 @@ def train(model, model_dir, history=None):
                 input_presence = input_presence_temp
                 start_index = end_index
 
-            # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+            if epoch%20 == 0:
+                input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Initialize hidden states and collect activations for each time step
             r = torch.zeros(num_trials, num_neurons)
@@ -88,7 +90,7 @@ def train(model, model_dir, history=None):
                     stimuli_present=(T_init < time < T_stimi + T_init)
                 )
                 r = model(r, u_t)
-                if time > (T_stimi + T_delay + T_init):
+                if time > (T_init + T_stimi + T_delay):
                     r_list.append(r.clone())
 
             r_stack = torch.stack(r_list)
@@ -114,12 +116,13 @@ def train(model, model_dir, history=None):
                 group_u_0 = u_0[start_index:end_index]
                 group_presence = input_presence[start_index:end_index]
 
-                _, _, group_error, group_variance = memory_loss_integral(
+                _, group_activ_penal, group_error, group_variance = memory_loss_integral(
                     model.F, group_r_stack, group_u_0, group_presence,
                     lambda_err=lambda_err, lambda_reg=lambda_reg
                 )
 
                 history["group_errors"][i].append(group_error.item())
+                history["group_activ"][i].append((group_activ_penal/lambda_reg).item())
                 history["group_std"][i].append(group_variance.sqrt().item())  # Record std (sqrt of variance)
 
                 start_index = end_index

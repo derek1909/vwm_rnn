@@ -93,6 +93,8 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('Error Loss', color=error_color)
     ax1.tick_params(axis='y', labelcolor=error_color)
+    # ax1.set_yscale('log')
+    # ax1.set_ylim(1e-3, 4)
     ax1.grid(True)
 
     # Calculate and annotate the average of the last 50 Error values
@@ -100,7 +102,7 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     ax1.axhline(y=avg_error, color=error_color, linestyle='--', alpha=0.7)
     ax1.annotate(
         f"{avg_error:.3f}",  # Format the annotation to 3 decimal places
-        xy=(epochs[-1], error_per_epoch[-1]),  # Position it at the last epoch's error value
+        xy=(epochs[-1], avg_error),  # Position it at the last epoch's error value
         xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
         color=error_color, fontsize=9, fontweight="bold"
     )
@@ -116,8 +118,8 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     avg_penalty = np.mean(activation_per_epoch[-50:])
     ax2.axhline(y=avg_penalty, color=activation_color, linestyle='--', alpha=0.7)
     ax2.annotate(
-        f"{avg_penalty:.3f}",  # Format the annotation to 3 decimal places
-        xy=(epochs[-1], activation_per_epoch[-1]),  # Position it at the last epoch's error value
+        f"{avg_penalty:.3f}Hz",  # Format the annotation to 3 decimal places
+        xy=(epochs[-1], avg_penalty),  # Position it at the last epoch's error value
         xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
         color=activation_color, fontsize=9, fontweight="bold"
     )
@@ -126,7 +128,7 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     fig.tight_layout()
     # plt.show()
 
-def plot_group_training_history(group_errors, group_stds, item_num):
+def plot_group_training_history(group_errors, group_stds, group_activ, item_num):
     """
     Plots the error and error bars for each group across epochs, with each group in a separate subplot,
     and annotates the end value for each group.
@@ -144,23 +146,26 @@ def plot_group_training_history(group_errors, group_stds, item_num):
         axes = [axes]
 
     colormap = plt.cm.tab10  # Change colormap if desired
-
-    for i, (errors, stds) in enumerate(zip(group_errors, group_stds)):
+    
+    # Plot each group in its subplot
+    for i, (errors, stds, activ) in enumerate(zip(group_errors, group_stds, group_activ)):
         errors = np.array(errors)
         stds = np.array(stds)
-        color = colormap(i % 10)  # Ensure color reuse for more than 10 groups
+        color = colormap(1 % 10)  # Ensure color reuse for more than 10 groups
 
-        # Plot each group in its subplot
+        # Plot errors
         axes[i].plot(
-            epochs, errors, label=f"Items={item_num[i]}",
-            color=color, marker='o', markersize=3
+            epochs, errors, 
+            # label=f"{item_num[i]} items",
+            color=color,
+            # marker='o', markersize=3
         )
         axes[i].fill_between(
             epochs,
             errors - stds,
             errors + stds,
             color=color,
-            alpha=0.3
+            alpha=0.2
         )
 
         # Add the end value annotation
@@ -175,9 +180,33 @@ def plot_group_training_history(group_errors, group_stds, item_num):
 
         # Set labels and titles
         axes[i].set_ylabel("Error")
-        axes[i].set_title(f"Items={item_num[i]}")
+        axes[i].set_title(f"{item_num[i]} items")
         axes[i].legend(loc='upper right')
         axes[i].grid(True)
+        # axes[i].set_yscale('log')
+        # axes[i].set_ylim(1e-3, 4)
+
+        color = colormap(4 % 10)  # Ensure color reuse for more than 10 groups
+        # Plot activations
+        # Create a second y-axis for Activation Penalty
+        # activation_color = 'orange'
+        ax2 = axes[i].twinx()
+        ax2.plot(epochs, activ, label="Activation", 
+                 color=color, 
+                #  marker='o', markersize=1
+                 )
+        ax2.set_ylabel('Ave Firing Rate (Hz)', color=color)
+        ax2.tick_params(axis='y', labelcolor=color)
+
+        # Calculate and annotate the average of the last 50 Activation Penalty values
+        avg_penalty = np.mean(activ[-50:])
+        ax2.axhline(y=avg_penalty, color=color, linestyle='--', alpha=0.7)
+        ax2.annotate(
+            f"{avg_penalty:.3f} Hz",  # Format the annotation to 3 decimal places
+            xy=(epochs[-1], avg_penalty),  # Position it at the last epoch's error value
+            xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+            color=color, fontsize=9, fontweight="bold"
+        )
 
     # Set the x-axis label for the last subplot
     axes[-1].set_xlabel("Epochs")
@@ -206,9 +235,7 @@ def load_model_and_history(model, model_dir, model_name="model_path.pth", histor
     # Load model
     if os.path.exists(model_path):
         model.load_state_dict(torch.load(model_path))
-    else:
-        raise FileNotFoundError(f"Model file not found at {model_path}")
-
+        
     # Load history
     if os.path.exists(history_path):
         with open(history_path, 'r') as f:
