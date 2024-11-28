@@ -136,77 +136,96 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num)
     Parameters:
     - group_errors: List of lists, where each sublist contains mean errors for a group over epochs.
     - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over epochs.
+    - group_activ: List of lists, where each sublist contains average activation penalties for a group over epochs.
     - item_num: List of the number of items in each group (e.g., [1, 2, 3, 4] for 4 groups).
     """
     num_groups = len(group_errors)
     epochs = np.arange(1, len(group_errors[0]) + 1)
 
-    fig, axes = plt.subplots(num_groups, 1, figsize=(6, 1.5*num_groups), sharex=True)
+    fig, axes = plt.subplots(num_groups, 1, figsize=(4,5+0*num_groups), sharex=True)
     if num_groups == 1:  # if only one group exists
         axes = [axes]
 
     colormap = plt.cm.tab10  # Change colormap if desired
-    
+
+    err_color = colormap(1 % 10)  # Ensure color reuse for more than 10 groups
+    activ_color = colormap(4 % 10)  # Ensure color reuse for more than 10 groups
+
     # Plot each group in its subplot
     for i, (errors, stds, activ) in enumerate(zip(group_errors, group_stds, group_activ)):
         errors = np.array(errors)
         stds = np.array(stds)
-        color = colormap(1 % 10)  # Ensure color reuse for more than 10 groups
 
         # Plot errors
-        axes[i].plot(
+        line_error, = axes[i].plot(
             epochs, errors, 
-            # label=f"{item_num[i]} items",
-            color=color,
+            label="Error",
+            color=err_color,
             # marker='o', markersize=3
         )
+        # Plot error bars
         axes[i].fill_between(
             epochs,
             errors - stds,
             errors + stds,
-            color=color,
-            alpha=0.2
+            color=err_color,
+            alpha=0.2,
+            label="Error ± std"
         )
 
-        # Add the end value annotation
-        end_value = np.mean(errors[-50:])
-        axes[i].axhline(y=end_value, color=color, linestyle='--', alpha=0.7)
-        axes[i].annotate(
-            f"{end_value:.3f}",  # Format the annotation to 3 decimal places
-            xy=(epochs[-1], errors[-1]),  # Position it at the last epoch's error value
-            xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
-            color=color, fontsize=9, fontweight="bold"
-        )
-
-        # Set labels and titles
-        axes[i].set_ylabel("Error")
-        axes[i].set_title(f"{item_num[i]} items")
-        axes[i].legend(loc='upper right')
+        axes[i].set_ylabel("Error",color=err_color)
+        axes[i].set_title(f"{item_num[i]} item. Loss and Activation vs Epoch")
+        axes[i].tick_params(axis='y', labelcolor=err_color)
         axes[i].grid(True)
-        # axes[i].set_yscale('log')
-        # axes[i].set_ylim(1e-3, 4)
 
-        color = colormap(4 % 10)  # Ensure color reuse for more than 10 groups
+
         # Plot activations
-        # Create a second y-axis for Activation Penalty
-        # activation_color = 'orange'
         ax2 = axes[i].twinx()
-        ax2.plot(epochs, activ, label="Activation", 
-                 color=color, 
-                #  marker='o', markersize=1
-                 )
-        ax2.set_ylabel('Ave Firing Rate (Hz)', color=color)
-        ax2.tick_params(axis='y', labelcolor=color)
+        line_activ, = ax2.plot(
+            epochs, activ,
+            label="Activation",
+            color=activ_color,
+            # marker='o', markersize=
+        )
+        ax2.set_ylabel('Ave Firing Rate (Hz)', color=activ_color)
+        ax2.tick_params(axis='y', labelcolor=activ_color)
 
-        # Calculate and annotate the average of the last 50 Activation Penalty values
+
+    
+
+        # Add the end value annotation for activation
         avg_penalty = np.mean(activ[-50:])
-        ax2.axhline(y=avg_penalty, color=color, linestyle='--', alpha=0.7)
+        ax2.axhline(y=avg_penalty, color=activ_color, linestyle='--', alpha=0.7)
         ax2.annotate(
             f"{avg_penalty:.3f} Hz",  # Format the annotation to 3 decimal places
             xy=(epochs[-1], avg_penalty),  # Position it at the last epoch's error value
-            xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
-            color=color, fontsize=9, fontweight="bold"
+            xytext=(-20, -20), textcoords="offset points",  # Offset slightly for clarity
+            color=activ_color, fontsize=10, fontweight="bold",
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
         )
+        # Add the end value annotation
+        end_value = np.mean(errors[-50:])
+        axes[i].axhline(y=end_value, color=err_color, linestyle='--', alpha=0.7)
+        axes[i].annotate(
+            f"{end_value:.3f}",  # Format the annotation to 3 decimal places
+            xy=(epochs[-1], errors[-1]),  # Position it at the last epoch's error value
+            xytext=(-20, -15), textcoords="offset points",  # Offset slightly for clarity
+            color=err_color, fontsize=10, fontweight="bold",
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
+        )
+
+
+    # Create a global legend
+    fig.legend(
+        handles=[
+            line_error,  # Line for Error
+            plt.Line2D([0], [0], color=err_color, alpha=0.2, lw=10, label="Error ± std"),  # Legend for Error ± std
+            line_activ,  # Line for Activation
+        ],
+        labels=["Error",  "Error ± std", "Activation"],
+        loc='lower center',
+        ncol=3  # Updated number of columns to fit the new entry
+    )
 
     # Set the x-axis label for the last subplot
     axes[-1].set_xlabel("Epochs")
