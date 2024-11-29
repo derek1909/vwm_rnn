@@ -1,9 +1,9 @@
 # Model parameters
 max_item_num = 8
 item_num = [1,3,5,7]
-num_neurons = 256
+num_neurons = 128
 tau = 50
-dt = 5
+dt = 10
 encode_noise = 0.01 # rad
 process_noise = 0.5 # Hz
 decode_noise = 0.0
@@ -17,16 +17,15 @@ simul_steps = int(T_simul/dt)
 # Training parameters
 train_rnn = True  # Set to True if training is required
 train_from_scratch = False
-num_epochs = 1000
-eta = 2e-4  # learning_rate
-lambda_reg = 2e-5  # coeff for activity penalty
+num_epochs = int(1)
+eta = 1e-5 # learning_rate
+lambda_reg = 5e-4  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
 num_trials = 128  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"
-rnn_name = "rnn4present_256neuron"
-# rnn_name = "rnn4present_256neuron"
+rnn_name = "rnn4present_128neuron_newactiv"
 model_dir = f"rnns/{rnn_name}"
 
 

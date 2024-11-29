@@ -142,7 +142,7 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num)
     num_groups = len(group_errors)
     epochs = np.arange(1, len(group_errors[0]) + 1)
 
-    fig, axes = plt.subplots(num_groups, 1, figsize=(4,5+0*num_groups), sharex=True)
+    fig, axes = plt.subplots(num_groups, 1, figsize=(8,2*num_groups), sharex=True)
     if num_groups == 1:  # if only one group exists
         axes = [axes]
 
@@ -194,7 +194,7 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num)
     
 
         # Add the end value annotation for activation
-        avg_penalty = np.mean(activ[-50:])
+        avg_penalty = np.mean(activ[-400:])
         ax2.axhline(y=avg_penalty, color=activ_color, linestyle='--', alpha=0.7)
         ax2.annotate(
             f"{avg_penalty:.3f} Hz",  # Format the annotation to 3 decimal places
@@ -230,8 +230,8 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num)
     # Set the x-axis label for the last subplot
     axes[-1].set_xlabel("Epochs")
 
-    plt.tight_layout()
-    # plt.show()
+    file_path = os.path.join(model_dir, f'training_history_{rnn_name}.png')
+    plt.savefig(file_path, dpi=300, bbox_inches="tight")
 
 def save_model_and_history(model, history, model_dir, model_name="model_path.pth", history_name="training_history.json"):
     """Saves the model state and training history to the specified directory."""
@@ -266,6 +266,7 @@ def load_model_and_history(model, model_dir, model_name="model_path.pth", histor
             "activation_per_epoch": [],
             "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
+            "group_activ": [[] for _ in item_num],
         }
 
     return model, history
