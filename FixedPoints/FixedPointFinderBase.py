@@ -296,9 +296,12 @@ class FixedPointFinderBase(object):
 
         state_traj_bxtxd = state_traj
 
+        # [trials, steps, neurons]
         [n_batch, n_time, n_states] = state_traj_bxtxd.shape
 
         valid_bxt = self._get_valid_mask(n_batch, n_time, valid_bxt=valid_bxt)
+
+        # Randomly Select States
         trial_indices, time_indices = self._sample_trial_and_time_indices(
             valid_bxt, n_inits)
 

@@ -21,7 +21,7 @@ num_epochs = int(1)
 eta = 1e-5 # learning_rate
 lambda_reg = 5e-4  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
-num_trials = 128  # Number of trials per epoch
+num_trials= 99  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"

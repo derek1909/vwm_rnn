@@ -12,6 +12,7 @@ class RNNMemoryModel(nn.Module):
         self.W = nn.Parameter(torch.randn(num_neurons, num_neurons) / num_neurons**0.5) 
         self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2)*10)
         self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons) / num_neurons**0.5)
+        self.batch_first = True # Required attribute to use FixedPointFinder
 
     def activation_function(self, x):
         return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
