@@ -1,5 +1,7 @@
 import numpy as np
 import torch
+import ipdb
+
 from rnn import *
 from config import *
 from utils import *
@@ -9,7 +11,7 @@ from train import *
 from FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
 from FixedPoints.plot_utils import plot_fps
 
-def analyze_fixed_points(model, hidden_states, input_dim):
+def analyze_fixed_points(model, hidden_states):
     """
     Analyze and visualize fixed points of the trained RNN.
 
@@ -43,23 +45,25 @@ def analyze_fixed_points(model, hidden_states, input_dim):
     sampled_states = fpf.sample_states(initial_states, n_inits=N_INITS, noise_scale=NOISE_SCALE)
 
     # Inputs to analyze the RNN in the absence of external stimuli
-    inputs = np.zeros([1, input_dim])
+    
+    inputs = np.zeros([1, max_item_num*2])
 
     # Find fixed points
     unique_fps, all_fps = fpf.find_fixed_points(sampled_states, inputs)
 
     # Visualization
-    plot_fps(unique_fps, hidden_states.reshape(-1, hidden_states.shape[-1]),
+    fig = plot_fps(unique_fps, hidden_states,
              plot_batch_idx=list(range(min(30, hidden_states.shape[1]))),
              plot_start_time=10)
-
+    
+# 
     return unique_fps
 
 
 # Load model
 model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise)
-model, history = load_model_and_history(model, model_dir)
-
+# model, history = load_model_and_history(model, model_dir)
+history = train(model, model_dir, history=None)
 
 # Simulate to collect hidden states
 # Generate presence for each group
@@ -77,24 +81,25 @@ for i, count in enumerate(trial_counts):
     input_presence = input_presence_temp
     start_index = end_index
 
-input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi)
 
-r = torch.zeros(num_trials, num_neurons)
-r_list = []
+u_t = generate_input_all(
+    presence=input_presence,
+    theta=input_thetas,
+    noise_level=encode_noise,
+    T_init=T_init,
+    T_stimi=T_stimi,
+    T_delay=T_delay,
+    T_decode=T_decode,
+    dt=dt)
 
-for step in range(simul_steps):
-    time = step * dt
-    u_t = generate_input(input_presence, input_thetas, noise_level=encode_noise,
-                            stimuli_present=(T_init < time < T_stimi + T_init))
-    r = model(r, u_t)
-    if time > (T_init + T_stimi + T_delay):  # Collect hidden states after stimuli
-        r_list.append(r.clone())
+r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
 
-hidden_states = torch.stack(r_list).detach().cpu().numpy()  # Shape: (steps, trials, neurons)
+hidden_states = r_output.detach().cpu().numpy()  # Shape: (steps, trials, neurons)
 
 # Run fixed point analysis
 print("Running Fixed Point Analysis...")
-unique_fps = analyze_fixed_points(model, hidden_states, input_dim=max_item_num*2)
+unique_fps = analyze_fixed_points(model, hidden_states)
 print(f"Fixed points found: {len(unique_fps)}")
 
 # Save final model and history

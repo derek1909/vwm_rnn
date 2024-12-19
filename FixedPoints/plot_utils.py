@@ -7,7 +7,7 @@ Please direct correspondence to mgolub@cs.washington.edu
 '''
 
 import numpy as np
-import pdb
+import ipdb
 
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
@@ -78,6 +78,7 @@ def plot_fps(fps,
         FIG_HEIGHT = 6 # inches
         fig = plt.figure(figsize=(FIG_WIDTH, FIG_HEIGHT),
             tight_layout=True)
+    # plt.ion()
 
     if state_traj is not None:
         
@@ -145,10 +146,11 @@ def plot_fps(fps,
             pca,
             scale=mode_scale)
 
-    plt.ion()
     plt.show()
-    plt.pause(1e-10)
-    
+    plt.draw()
+
+    ipdb.set_trace()
+
     return fig
 
 def plot_fixed_point(ax, fp, pca,
