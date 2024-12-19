@@ -17,19 +17,63 @@ class RNNMemoryModel(nn.Module):
     def activation_function(self, x):
         return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
 
-    def forward(self, r, u):
-        # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
-        r = r.T # (trial,neuron) -> (neuron,trial) 
-        u = u.T # (trial,input) -> (input,trial) 
-        r_dot = (-r + self.activation_function(self.W @ r + self.B @ u)) / self.tau
-        r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
-        return r.T
+    def forward(self, u, r0=None):
+        """
+        Args:
+            u: (batch_size, seq_len, input_size) = (trial, steps, 2*max_item_num)
+            r0: (num_layers * num_directions, batch_size, hidden_size) = (1, trial, neuron)
+                Initial firing rate for the RNN.
+
+        Returns:
+            r_output: (batch_size, seq_len, hidden_size) = (trial, steps, neuron)
+                All hidden states over time.
+            r: (num_layers * num_directions, batch_size, hidden_size) = (1, trial, neuron)
+                Final hidden state.
+        """
+        batch_size, seq_len, _ = u.size()  # Extract dimensions from input
+        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=u.device)
+        
+        # Initialize the firing rate for all time steps
+        r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=u.device)
+        
+        # Current firing rate
+        r = r0.squeeze(0)  # Shape: (batch_size, neuron)
+
+        # Iterate over time steps
+        for t in range(seq_len):
+            u_t = u[:, t, :]  # Current input at time step t (batch_size, input)
+            
+            # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
+            r_dot = (-r + self.activation_function(self.W @ r.T + self.B @ u_t.T).T) / self.tau
+            
+            # Update firing rate with Euler integration
+            r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
+
+            # Store the firing rate for this time step
+            r_output[:, t, :] = r
+
+        # Return all hidden states and the final hidden state
+        return r_output, r.unsqueeze(0)
 
 def decode(F, r):
-    # r = (num_trials, num_neurons)
-    # F = (num_neurons, num_neurons)
-    u_hat = (F @ r.T).T.view(r.size(0), int(F.shape[0]/2), 2)
+    """
+    Decodes the input firing rates (r) into a normalized output representation.
+
+    Args:
+        F : Decoding weight matrix of shape (input_size, hidden_size) = (2*max_item_num, num_neurons)
+        r : Firing rate matrix of shape (num_trials, num_neurons)
+
+    Returns:
+        torch.Tensor: (num_trials, input_size)
+    """
+    # (num_trials, input_size/2, 2)
+    u_hat = (F @ r.T).T.view(r.size(0), -1, 2)
+    
+    # Normalize the 2D representation of u_hat across the last dimension.
     normalized_u_hat = u_hat / torch.norm(u_hat, dim=2, keepdim=True)
+    
+    # Reshape normalized_u_hat into a flat representation.
+    # (num_trials, input_size)
     return normalized_u_hat.view(r.size(0), -1)
 
 

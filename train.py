@@ -3,7 +3,7 @@ import torch.optim as optim
 from tqdm import tqdm
 from rnn import *
 from config import *
-from utils import save_model_and_history, generate_input
+from utils import save_model_and_history, generate_input_single, generate_input_all
 
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
@@ -18,7 +18,7 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
 
     # Calculate the squared error for each trial
     # (steps,trials,items) -> (trials,)
-    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2))  / torch.sum(presence, dim=1) / num_steps  # average over time steps and dimensions # Normalize by number of items per trial
+    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2))  /  torch.sum(presence, dim=1) / num_steps  # average over time steps and dimensions # Normalize by number of items per trial
 
     # Mean error across all trials
     mean_error = lambda_err * error_per_trial.mean()
@@ -76,29 +76,27 @@ def train(model, model_dir, history=None):
             if epoch%20 == 0:
                 input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
 
-            # Initialize hidden states and collect activations for each time step
-            r = torch.zeros(num_trials, num_neurons)
-            r_list = []
+            # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
+            u_t = generate_input_all(
+                presence=input_presence,
+                theta=input_thetas,
+                noise_level=encode_noise,
+                T_init=T_init,
+                T_stimi=T_stimi,
+                T_delay=T_delay,
+                T_decode=T_decode,
+                dt=dt)
+ 
+            r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
 
-            # Simulate the RNN across all trials and time steps
-            for step in range(simul_steps):
-                time = step * dt
-                u_t = generate_input(
-                    input_presence,
-                    input_thetas,
-                    noise_level=encode_noise,
-                    stimuli_present=(T_init < time < T_stimi + T_init)
-                )
-                r = model(r, u_t)
-                if time > (T_init + T_stimi + T_delay):
-                    r_list.append(r.clone())
+            step_threshold = int((T_init + T_stimi + T_delay) / dt)
+            r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
 
-            r_stack = torch.stack(r_list)
-            u_0 = generate_input(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
+            u_0 = generate_input_single(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
 
             # Calculate total loss and group-wise errors
             total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(
-                model.F, r_stack, u_0, input_presence,
+                model.F, r_loss, u_0, input_presence,
                 lambda_err=lambda_err, lambda_reg=lambda_reg
             )
             history["error_per_epoch"].append(total_error.item())
@@ -112,7 +110,7 @@ def train(model, model_dir, history=None):
             start_index = 0
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
-                group_r_stack = r_stack[:, start_index:end_index]
+                group_r_stack = r_loss[:, start_index:end_index]
                 group_u_0 = u_0[start_index:end_index]
                 group_presence = input_presence[start_index:end_index]
 

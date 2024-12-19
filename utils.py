@@ -7,7 +7,7 @@ import numpy as np
 from rnn import *
 from config import *
 
-def generate_input(presence, theta, noise_level=0.0, stimuli_present=True):
+def generate_input_single(presence, theta, noise_level=0.0, stimuli_present=True):
     theta = theta + noise_level * torch.randn_like(theta)
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num)
@@ -16,6 +16,59 @@ def generate_input(presence, theta, noise_level=0.0, stimuli_present=True):
         u_0[:, 2 * i + 1] = presence[:, i] * torch.sin(theta[:, i])
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
+
+def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10):
+    """
+    Generate a 3D input tensor of shape (steps, num_trials, 2 * max_item_num) without loops.
+
+    Args:
+        presence: (num_trials, max_item_num) binary tensor indicating presence of items.
+        theta: (num_trials, max_item_num) tensor of angles.
+        noise_level: Noise level to be added to theta.
+        T_init, T_stimi, T_delay, T_decode: Timings for each phase (in ms).
+        dt: Time step size (in ms).
+
+    Returns:
+        u_t_stack: (num_trials, steps, 2 * max_item_num) tensor of input vectors over time.
+    """
+    # Total simulation time and steps
+    T_simul = T_init + T_stimi + T_delay + T_decode
+    steps = int(T_simul / dt)
+    num_trials, max_item_num = presence.shape
+
+    # Add noise to theta
+    theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(steps, num_trials, max_item_num, device=theta.device)
+
+
+    # Compute the 2D positions (cos and sin components) for all items
+    cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
+    sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
+
+
+    # Stack cos and sin into a single tensor along the last dimension
+    u_0 = torch.stack((cos_theta, sin_theta), dim=-1)  # (steps, num_trials, max_item_num, 2)
+
+    # Multiply by presence to zero-out absent items
+    u_0 = u_0 * presence.unsqueeze(0).unsqueeze(-1)  # (steps, num_trials, max_item_num, 2)
+
+    # Reshape to match output shape (combine cos and sin into one dimension)
+    u_0 = u_0.view(steps, num_trials, -1)  # (steps, num_trials, 2 * max_item_num)
+
+
+
+    # Create a mask for stimuli presence at each time step
+    stimuli_present_mask = (torch.arange(steps, device=theta.device) * dt >= T_init) & \
+                           (torch.arange(steps, device=theta.device) * dt < T_init + T_stimi)
+    stimuli_present_mask = stimuli_present_mask.float().unsqueeze(-1).unsqueeze(-1)  # (steps, 1, 1)
+
+    # Apply the stimuli mask
+    u_t_stack = u_0 * stimuli_present_mask  # (steps, num_trials, 2 * max_item_num)
+
+    # Swap dimensions 0 and 1 to get (num_trials, steps, 2 * max_item_num)
+    u_t_stack = u_t_stack.transpose(0, 1)
+
+    return u_t_stack
+
 
 def evaluate(model, angle_targets):
     """
