@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from config import *
+from config import device
 
 class RNNMemoryModel(nn.Module):
     def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0):
@@ -9,10 +9,10 @@ class RNNMemoryModel(nn.Module):
         self.tau = tau
         self.dt = dt
         self.noise_level = noise_level
-        self.W = nn.Parameter(torch.randn(num_neurons, num_neurons) / num_neurons**0.5) 
-        self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2)*10)
-        self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons) / num_neurons**0.5)
-        self.batch_first = True # Required attribute to use FixedPointFinder
+        self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
+        self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)
+        self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons, device=device) / num_neurons**0.5)
+        self.batch_first = True  # Required attribute to use FixedPointFinder
 
     def activation_function(self, x):
         return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
@@ -31,13 +31,16 @@ class RNNMemoryModel(nn.Module):
                 Final hidden state.
         """
         batch_size, seq_len, _ = u.size()  # Extract dimensions from input
-        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=u.device)
+        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=device)
         
         # Initialize the firing rate for all time steps
-        r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=u.device)
+        r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=device)
         
         # Current firing rate
         r = r0.squeeze(0)  # Shape: (batch_size, neuron)
+
+        # Prepare random noise for all time steps in advance
+        random_noise = self.noise_level * torch.randn((batch_size, seq_len, self.num_neurons), device=device)
 
         # Iterate over time steps
         for t in range(seq_len):
@@ -47,7 +50,7 @@ class RNNMemoryModel(nn.Module):
             r_dot = (-r + self.activation_function(self.W @ r.T + self.B @ u_t.T).T) / self.tau
             
             # Update firing rate with Euler integration
-            r = r + self.dt * r_dot + self.noise_level * torch.randn_like(r)
+            r = r + self.dt * r_dot + random_noise[:,t,:]
 
             # Store the firing rate for this time step
             r_output[:, t, :] = r
@@ -75,6 +78,3 @@ def decode(F, r):
     # Reshape normalized_u_hat into a flat representation.
     # (num_trials, input_size)
     return normalized_u_hat.view(r.size(0), -1)
-
-
-

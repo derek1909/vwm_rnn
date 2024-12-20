@@ -1,6 +1,6 @@
 # Model parameters
-max_item_num = 1
-item_num = [1]
+max_item_num = 8
+item_num = [1,3,5,7]
 num_neurons = 128
 tau = 50
 dt = 10
@@ -16,18 +16,25 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = True  # Set to True if training is required
-train_from_scratch = True
-num_epochs = int(3e3)
-eta = 1e-4 # learning_rate
+train_from_scratch = False
+num_epochs = int(1e3)
+eta = 1e-5 # learning_rate
 lambda_reg = 5e-4  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
-num_trials= 128  # Number of trials per epoch
+num_trials = 128  # Number of trials per epoch
 
 # Model and logging parameters
 # rnn_name = "fixed_discrete_input-no_noise"
-rnn_name = "torchlike_rnn_1"
+rnn_name = "cuda_2"
 model_dir = f"rnns/{rnn_name}"
 
+
+# Auto-detect device
+import torch
+if torch.cuda.is_available():
+    device = 'cuda'  # Use the first CUDA device
+else:
+    device = 'cpu'  # Fallback to CPU
 
 
 # Save config
@@ -64,6 +71,7 @@ config = {
     "model_and_logging_params": {
         "rnn_name": rnn_name,
         "model_dir": model_dir,
+        "device": device,
     }
 }
 
@@ -75,3 +83,4 @@ with open(config_path, "w") as f:
     json.dump(config, f, indent=4)
 
 print(f"Configuration saved to {config_path}")
+print(f"Using device: {device}")

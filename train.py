@@ -18,7 +18,8 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
 
     # Calculate the squared error for each trial
     # (steps,trials,items) -> (trials,)
-    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2))  /  torch.sum(presence, dim=1) / num_steps  # average over time steps and dimensions # Normalize by number of items per trial
+    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2)) / \
+                      torch.sum(presence, dim=1) / num_steps  # Average over time steps and dimensions
 
     # Mean error across all trials
     mean_error = lambda_err * error_per_trial.mean()
@@ -59,22 +60,23 @@ def train(model, model_dir, history=None):
     with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
         for epoch in range(num_epochs):
             optimizer.zero_grad()
-            total_loss = 0
-            total_activ_penal = 0
 
             # Generate presence for each group
-            input_presence = torch.zeros(num_trials, max_item_num, requires_grad=True)
+            input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
             start_index = 0
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
-                one_hot_indices = torch.stack([torch.randperm(max_item_num)[:item_num[i]] for _ in range(count)])
+                one_hot_indices = torch.stack([
+                    torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)
+                ])
                 input_presence_temp = input_presence.clone()
                 input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
                 input_presence = input_presence_temp
                 start_index = end_index
 
-            if epoch%20 == 0:
-                input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
+            # Update input_thetas every 20 epochs
+            if epoch % 20 == 0:
+                input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
             u_t = generate_input_all(
@@ -85,8 +87,9 @@ def train(model, model_dir, history=None):
                 T_stimi=T_stimi,
                 T_delay=T_delay,
                 T_decode=T_decode,
-                dt=dt)
- 
+                dt=dt
+            )
+            
             r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
 
             step_threshold = int((T_init + T_stimi + T_delay) / dt)

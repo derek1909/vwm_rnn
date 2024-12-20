@@ -8,9 +8,9 @@ from rnn import *
 from config import *
 
 def generate_input_single(presence, theta, noise_level=0.0, stimuli_present=True):
-    theta = theta + noise_level * torch.randn_like(theta)
+    theta = theta + noise_level * torch.randn_like(theta, device=device)
     max_item_num = presence.shape[1]
-    u_0 = torch.zeros(presence.size(0), 2 * max_item_num)
+    u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     for i in range(max_item_num):
         u_0[:, 2 * i] = presence[:, i] * torch.cos(theta[:, i])
         u_0[:, 2 * i + 1] = presence[:, i] * torch.sin(theta[:, i])
@@ -37,13 +37,13 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
     num_trials, max_item_num = presence.shape
 
     # Add noise to theta
-    theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(steps, num_trials, max_item_num, device=theta.device)
-
+    theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(
+        (steps, num_trials, max_item_num), device=device
+    )
 
     # Compute the 2D positions (cos and sin components) for all items
     cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
     sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
-
 
     # Stack cos and sin into a single tensor along the last dimension
     u_0 = torch.stack((cos_theta, sin_theta), dim=-1)  # (steps, num_trials, max_item_num, 2)
@@ -54,11 +54,9 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
     # Reshape to match output shape (combine cos and sin into one dimension)
     u_0 = u_0.view(steps, num_trials, -1)  # (steps, num_trials, 2 * max_item_num)
 
-
-
     # Create a mask for stimuli presence at each time step
-    stimuli_present_mask = (torch.arange(steps, device=theta.device) * dt >= T_init) & \
-                           (torch.arange(steps, device=theta.device) * dt < T_init + T_stimi)
+    stimuli_present_mask = (torch.arange(steps, device=device) * dt >= T_init) & \
+                           (torch.arange(steps, device=device) * dt < T_init + T_stimi)
     stimuli_present_mask = stimuli_present_mask.float().unsqueeze(-1).unsqueeze(-1)  # (steps, 1, 1)
 
     # Apply the stimuli mask
@@ -69,24 +67,24 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
 
     return u_t_stack
 
-
 def evaluate(model, angle_targets):
     """
     Evaluates the model's decoded orientations for given target angles.
 
     Args:
         model: The RNN memory model.
-        angle_targets (list): List of target angles for evaluation.å
-    Returns:å
+        angle_targets (list): List of target angles for evaluation.
+
+    Returns:
         dict: A dictionary mapping each angle target to its decoded orientations over time.
     """
     decoded_orientations_dict = {}
-    presence = torch.tensor([1,]).reshape(1, max_item_num)
+    presence = torch.tensor([1], device=device).reshape(1, max_item_num)
 
     for angle_target in angle_targets:
         decoded_orientations_after = []
-        theta = torch.tensor([angle_target,]).reshape(1, max_item_num)
-        r = torch.zeros(1, num_neurons)
+        theta = torch.tensor([angle_target], device=device).reshape(1, max_item_num)
+        r = torch.zeros(1, num_neurons, device=device)
 
         for step in range(simul_steps):
             time = step * dt
@@ -103,11 +101,11 @@ def evaluate(model, angle_targets):
 
 def plot_results(decoded_orientations_dict):
     plt.figure(figsize=(5,4))
-    time_steps = torch.tensor([step * dt for step in range(simul_steps)])
+    time_steps = torch.tensor([step * dt for step in range(simul_steps)], device=device)
 
     # Plot response lines and target curves
     for angle_target, decoded_orientations in decoded_orientations_dict.items():
-        line, = plt.plot(time_steps, decoded_orientations, marker='o', linestyle='-', markersize=3)
+        line, = plt.plot(time_steps.cpu(), decoded_orientations, marker='o', linestyle='-', markersize=3)
         plt.axhline(y=angle_target, color=line.get_color(), linestyle='--')
 
     response_legend = plt.Line2D([0], [0], color='blue', marker='o', linestyle='-', markersize=4, label='Response')
