@@ -20,8 +20,8 @@
     "training_params": {
         "train_rnn": false,
         "train_from_scratch": false,
-        "num_epochs": 10,
-        "eta": 0.0001,
+        "num_epochs": 10000,
+        "eta": 1e-05,
         "lambda_reg": 0.0005,
         "lambda_err": 1.0,
         "num_trials": 64
@@ -29,6 +29,6 @@
     "model_and_logging_params": {
         "rnn_name": "cuda_2",
         "model_dir": "rnns/cuda_2",
-        "device": "cuda"
+        "device": "cpu"
     }
 }

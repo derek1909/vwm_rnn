@@ -15,7 +15,7 @@ T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
 
 # Training parameters
-train_rnn = True  # Set to True if training is required
+train_rnn = False  # Set to True if training is required
 train_from_scratch = False
 num_epochs = int(1e3)
 eta = 1e-5 # learning_rate
@@ -27,6 +27,18 @@ num_trials = 128  # Number of trials per epoch
 # rnn_name = "fixed_discrete_input-no_noise"
 rnn_name = "1024neuron_8items"
 model_dir = f"rnns/{rnn_name}"
+
+# Fixed Point Finder parameters
+fpf_bool = True
+fpf_N_init = 4096 # Number of initial states for optimization
+fpf_noise_scale = 0.5  # Standard deviation of noise added to states
+fpf_hps = { # Hyperparameters for fixed point finder
+    'max_iters': 10000,
+    'lr_init': 1.0,
+    'outlier_distance_scale': 10.0,
+    'verbose': True,
+    'super_verbose': True
+}
 
 
 
