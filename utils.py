@@ -304,8 +304,8 @@ def load_model_and_history(model, model_dir, model_name="model_path.pth", histor
 
     # Load model
     if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path))
-        
+        model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
+
     # Load history
     if os.path.exists(history_path):
         with open(history_path, 'r') as f:

@@ -1,0 +1,34 @@
+{
+    "model_params": {
+        "max_item_num": 1,
+        "num_neurons": 64,
+        "tau": 50,
+        "dt": 10,
+        "encode_noise": 0.01,
+        "process_noise": 0.5,
+        "decode_noise": 0.0,
+        "T_init": 20,
+        "T_stimi": 400,
+        "T_delay": 0,
+        "T_decode": 800,
+        "T_simul": 1220,
+        "simul_steps": 122,
+        "item_num": [
+            1
+        ]
+    },
+    "training_params": {
+        "train_rnn": false,
+        "train_from_scratch": false,
+        "num_epochs": 10,
+        "eta": 0.0001,
+        "lambda_reg": 0.0005,
+        "lambda_err": 1.0,
+        "num_trials": 64
+    },
+    "model_and_logging_params": {
+        "rnn_name": "cuda_2",
+        "model_dir": "rnns/cuda_2",
+        "device": "cuda"
+    }
+}

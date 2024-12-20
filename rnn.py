@@ -13,7 +13,17 @@ class RNNMemoryModel(nn.Module):
         self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)
         self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons, device=device) / num_neurons**0.5)
         self.batch_first = True  # Required attribute to use FixedPointFinder
+        self.device = device
 
+    def to(self, *args, **kwargs):
+        # Call the parent class's `to` method to move the model
+        super().to(*args, **kwargs)
+        # Update the device attribute based on the first argument
+        device = torch._C._nn._parse_to(*args, **kwargs)[0]  # Internal parsing of `to` arguments
+        if device:
+            self.device = device
+        return self
+    
     def activation_function(self, x):
         return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
 
@@ -31,16 +41,16 @@ class RNNMemoryModel(nn.Module):
                 Final hidden state.
         """
         batch_size, seq_len, _ = u.size()  # Extract dimensions from input
-        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=device)
+        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=self.device)
         
         # Initialize the firing rate for all time steps
-        r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=device)
+        r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=self.device)
         
         # Current firing rate
         r = r0.squeeze(0)  # Shape: (batch_size, neuron)
 
         # Prepare random noise for all time steps in advance
-        random_noise = self.noise_level * torch.randn((batch_size, seq_len, self.num_neurons), device=device)
+        random_noise = self.noise_level * torch.randn((batch_size, seq_len, self.num_neurons), device=self.device)
 
         # Iterate over time steps
         for t in range(seq_len):

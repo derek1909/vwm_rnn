@@ -19,7 +19,8 @@ def plot_fps(fps,
     plot_start_time=0,
     plot_stop_time=None,
     mode_scale=0.25,
-    fig=None):
+    fig=None,
+    save_path=None,):
 
     '''Plots a visualization and analysis of the unique fixed points.
 
@@ -145,6 +146,10 @@ def plot_fps(fps,
             fps[init_idx],
             pca,
             scale=mode_scale)
+
+    # Save the figure if save_path is provided
+    if save_path is not None:
+        fig.savefig(save_path, format='png', dpi=300)  # You can specify other formats like 'pdf'
 
     plt.show()
     plt.draw()
