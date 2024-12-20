@@ -22,17 +22,6 @@ def analyze_fixed_points(model, hidden_states):
     Returns:
         unique_fps: Unique fixed points found.
     """
-    # Hyperparameters for fixed point finder
-    fpf_hps = {
-        'max_iters': 10000,
-        'lr_init': 1.0,
-        'outlier_distance_scale': 10.0,
-        'verbose': True,
-        'super_verbose': True
-    }
-
-    NOISE_SCALE = 0.5  # Standard deviation of noise added to states
-    N_INITS = 128     # Number of initial states for optimization
 
     # (steps, trials, neurons) -> [n_batch x n_time x n_states]
     initial_states = hidden_states.reshape(num_trials, -1, num_neurons)
@@ -41,7 +30,7 @@ def analyze_fixed_points(model, hidden_states):
     fpf = FixedPointFinder(model, **fpf_hps)
 
     # sampled_states has shape [n_inits x n_states]
-    sampled_states = fpf.sample_states(initial_states, n_inits=N_INITS, noise_scale=NOISE_SCALE)
+    sampled_states = fpf.sample_states(initial_states, n_inits=fpf_N_init, noise_scale=fpf_noise_scale)
 
     # Inputs to analyze the RNN in the absence of external stimuli
     inputs = np.zeros([1, max_item_num * 2])
@@ -55,7 +44,7 @@ def analyze_fixed_points(model, hidden_states):
         hidden_states.cpu().numpy(),  # Convert back to CPU for plotting
         plot_batch_idx=list(range(min(30, hidden_states.shape[1]))),
         plot_start_time=T_init,
-        save_path=f"{model_dir}/fixed_points_plot.pkl"
+        save_path=f"{model_dir}/fixed_points_plot.png"
     )
 
     return unique_fps

@@ -26,7 +26,7 @@ if __name__ == "__main__":
     if history:
         plot_group_training_history(history["group_errors"], history["group_std"], history["group_activ"], item_num)
 
-    if find_fixed_points:
+    if fpf_bool:
         fixed_points_finder(model)
 
     # plt.show()
