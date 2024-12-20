@@ -12,6 +12,7 @@ import ipdb
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pickle
 
 def plot_fps(fps,
     state_traj=None,
@@ -116,9 +117,9 @@ def plot_fps(fps,
         ax.set_ylabel('PC 2', fontweight=FONT_WEIGHT)
 
         # For generating figure in paper.md
-        ax.set_xticks([-2, -1, 0, 1, 2])
-        ax.set_yticks([-1, 0, 1])
-        ax.set_zticks([-1, 0, 1])
+        # ax.set_xticks([-2, -1, 0, 1, 2])
+        # ax.set_yticks([-1, 0, 1])
+        # ax.set_zticks([-1, 0, 1])
     else:
         # For 1D or 0D networks (i.e., never)
         pca = None
@@ -147,14 +148,18 @@ def plot_fps(fps,
             pca,
             scale=mode_scale)
 
-    # Save the figure if save_path is provided
+    # Save the figure from multiple angles if save_base_path is provided
     if save_path is not None:
-        fig.savefig(save_path, format='png', dpi=300)  # You can specify other formats like 'pdf'
+        angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
+        for angle in angles:
+            ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
+            fig.savefig(f"{save_path}/fpf_angle_{angle}.png", format='png', dpi=300)
+            plt.draw()
+            plt.pause(0.001)  # Pause to ensure the plot updates
+        with open(f'{save_path}/fpf_3d.fig.pickle', 'wb') as file:
+            pickle.dump(fig, file)  
 
-    plt.show()
-    plt.draw()
-
-    ipdb.set_trace()
+    # ipdb.set_trace()
 
     return fig
 

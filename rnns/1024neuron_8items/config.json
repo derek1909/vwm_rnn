@@ -21,7 +21,7 @@
         ]
     },
     "training_params": {
-        "train_rnn": true,
+        "train_rnn": false,
         "train_from_scratch": false,
         "num_epochs": 1000,
         "eta": 1e-05,

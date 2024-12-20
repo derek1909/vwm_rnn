@@ -44,7 +44,7 @@ def analyze_fixed_points(model, hidden_states):
         hidden_states.cpu().numpy(),  # Convert back to CPU for plotting
         plot_batch_idx=list(range(min(30, hidden_states.shape[1]))),
         plot_start_time=T_init,
-        save_path=f"{model_dir}/fixed_points_plot.png"
+        save_path=model_dir,
     )
 
     return unique_fps
