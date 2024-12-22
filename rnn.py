@@ -3,17 +3,23 @@ import torch.nn as nn
 from config import device
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0):
+    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0, device='cpu', positive_input=0):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
         self.tau = tau
         self.dt = dt
         self.noise_level = noise_level
-        self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
-        self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)
-        self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons, device=device) / num_neurons**0.5)
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
+        self.positive_input = positive_input
+        
+        if self.positive_input >= 1:
+            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*2, device=device))*2)
+        else:
+            self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)
+        self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
+        self.F = nn.Parameter(torch.randn(max_item_num*2, num_neurons, device=device) / num_neurons**0.5)
+
 
     def to(self, *args, **kwargs):
         # Call the parent class's `to` method to move the model

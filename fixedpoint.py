@@ -81,7 +81,8 @@ def fixed_points_finder(model):
         T_stimi=T_stimi,
         T_delay=T_delay,
         T_decode=T_decode,
-        dt=dt
+        dt=dt,
+        alpha=positive_input,
     )
 
     r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)

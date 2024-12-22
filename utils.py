@@ -7,17 +7,17 @@ import numpy as np
 from rnn import *
 from config import *
 
-def generate_input_single(presence, theta, noise_level=0.0, stimuli_present=True):
+def generate_input_single(presence, theta, noise_level=0.0, stimuli_present=True, alpha=0):
     theta = theta + noise_level * torch.randn_like(theta, device=device)
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     for i in range(max_item_num):
-        u_0[:, 2 * i] = presence[:, i] * torch.cos(theta[:, i])
-        u_0[:, 2 * i + 1] = presence[:, i] * torch.sin(theta[:, i])
+        u_0[:, 2 * i] = presence[:, i] * ( torch.cos(theta[:, i]) + alpha )
+        u_0[:, 2 * i + 1] = presence[:, i] * ( torch.sin(theta[:, i]) + alpha )
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
-def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10):
+def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10, alpha=0):
     """
     Generate a 3D input tensor of shape (steps, num_trials, 2 * max_item_num) without loops.
 
@@ -46,10 +46,9 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
     sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
 
     # Stack cos and sin into a single tensor along the last dimension
-    u_0 = torch.stack((cos_theta, sin_theta), dim=-1)  # (steps, num_trials, max_item_num, 2)
+    # Then multiply by presence to zero-out absent items
+    u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) + alpha ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
 
-    # Multiply by presence to zero-out absent items
-    u_0 = u_0 * presence.unsqueeze(0).unsqueeze(-1)  # (steps, num_trials, max_item_num, 2)
 
     # Reshape to match output shape (combine cos and sin into one dimension)
     u_0 = u_0.view(steps, num_trials, -1)  # (steps, num_trials, 2 * max_item_num)
@@ -67,37 +66,37 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
 
     return u_t_stack
 
-def evaluate(model, angle_targets):
-    """
-    Evaluates the model's decoded orientations for given target angles.
+# def evaluate(model, angle_targets):
+#     """
+#     Evaluates the model's decoded orientations for given target angles.
 
-    Args:
-        model: The RNN memory model.
-        angle_targets (list): List of target angles for evaluation.
+#     Args:
+#         model: The RNN memory model.
+#         angle_targets (list): List of target angles for evaluation.
 
-    Returns:
-        dict: A dictionary mapping each angle target to its decoded orientations over time.
-    """
-    decoded_orientations_dict = {}
-    presence = torch.tensor([1], device=device).reshape(1, max_item_num)
+#     Returns:
+#         dict: A dictionary mapping each angle target to its decoded orientations over time.
+#     """
+#     decoded_orientations_dict = {}
+#     presence = torch.tensor([1], device=device).reshape(1, max_item_num)
 
-    for angle_target in angle_targets:
-        decoded_orientations_after = []
-        theta = torch.tensor([angle_target], device=device).reshape(1, max_item_num)
-        r = torch.zeros(1, num_neurons, device=device)
+#     for angle_target in angle_targets:
+#         decoded_orientations_after = []
+#         theta = torch.tensor([angle_target], device=device).reshape(1, max_item_num)
+#         r = torch.zeros(1, num_neurons, device=device)
 
-        for step in range(simul_steps):
-            time = step * dt
-            u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
-            r = model(r, u_t)
-            decoded_memory = decode(model.F, r)
-            decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
-            orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
-            decoded_orientations_after.append(orientation[0, 0].item())
+#         for step in range(simul_steps):
+#             time = step * dt
+#             u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
+#             r = model(r, u_t)
+#             decoded_memory = decode(model.F, r)
+#             decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
+#             orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
+#             decoded_orientations_after.append(orientation[0, 0].item())
 
-        decoded_orientations_dict[angle_target] = decoded_orientations_after
+#         decoded_orientations_dict[angle_target] = decoded_orientations_after
 
-    return decoded_orientations_dict
+#     return decoded_orientations_dict
 
 def plot_results(decoded_orientations_dict):
     plt.figure(figsize=(5,4))
