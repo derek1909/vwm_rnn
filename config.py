@@ -1,6 +1,6 @@
 # Model parameters
-max_item_num = 8
-item_num = [1, 3, 5, 7]
+max_item_num = 1
+item_num = [1]
 num_neurons = 256
 tau = 50
 dt = 10
@@ -16,26 +16,28 @@ T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
 
 # Training parameters
-train_rnn = True  # Set to True if training is required
+train_rnn = False  # Set to True if training is required
 train_from_scratch = False
-num_epochs = int(1)
-eta = 2e-6  # learning_rate
+num_epochs = int(1e4)
+eta = 1e-5  # learning_rate
 lambda_reg = 5e-4  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
-num_trials = 256  # Number of trials per epoch
-logging_period = 20 # record progress every 10 epoch
+num_trials = 64  # Number of trials per epoch
+logging_period = 10 # record progress every 10 epoch
 
 # Model and logging parameters
-rnn_name = "256euron_8items_PI"
+rnn_name = "256neuron_1items_PI"
 model_dir = f"rnns/{rnn_name}"
 cuda_device = 0
 
 # Fixed Point Finder parameters
-fpf_bool = False
-fpf_N_init = 1024 # Number of initial states for optimization
-fpf_noise_scale = 0.5  # Standard deviation of noise added to states
+fpf_bool = True
+fpf_pca_bool = True
+fpf_name = 'stimuli' # stimuli or decode.
+fpf_N_init = 512 # Number of initial states for optimization
+fpf_noise_scale = 0.0  # Standard deviation of noise added to states
 fpf_hps = { # Hyperparameters for fixed point finder
-    'max_iters': 10000,
+    'max_iters': 5000,
     'lr_init': 1.0,
     'outlier_distance_scale': 10.0,
     'verbose': True,

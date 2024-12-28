@@ -69,13 +69,6 @@ def analyze_fixed_points(model, hidden_states):
         save_path=f'{model_dir}/{fpf_name}',
         )
 
-
-    plot_F_vs_PCA_1item(
-        model.F.detach().cpu(),
-        hidden_states[:,-1,:],
-        save_path=f'{model_dir}'
-    )
-
     return unique_fps
 
 
@@ -102,13 +95,13 @@ def fixed_points_finder(model):
         input_presence = input_presence_temp
         start_index = end_index
 
-    input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi)
-    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1)
+    # input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi)
+    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
 
     u_t = generate_input_all(
         presence=input_presence,
         theta=input_thetas,
-        noise_level=encode_noise,
+        noise_level=0.0,
         T_init=T_init,
         T_stimi=T_stimi,
         T_delay=T_delay,
@@ -127,5 +120,14 @@ def fixed_points_finder(model):
     model = model.to('cpu')
     unique_fps = analyze_fixed_points(model, hidden_states)
     print(f"Fixed points found: {len(unique_fps)}")
+
+
+
+    if fpf_pca_bool:
+        plot_F_vs_PCA_1item(
+            model.F.detach().cpu(),
+            hidden_states[:,-1,:],
+            save_path=f'{model_dir}'
+        )
 
     return unique_fps
