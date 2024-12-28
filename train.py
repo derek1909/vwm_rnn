@@ -114,27 +114,27 @@ def train(model, model_dir, history=None):
             if model.positive_input >= 1:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
 
-            # Calculate group-wise mean error and variance
-            start_index = 0
-            for i, count in enumerate(trial_counts):
-                end_index = start_index + count
-                group_r_stack = r_loss[:, start_index:end_index]
-                group_u_0 = u_0[start_index:end_index]
-                group_presence = input_presence[start_index:end_index]
+            if epoch%logging_period == 0:
+                # Calculate group-wise mean error and variance
+                start_index = 0
+                for i, count in enumerate(trial_counts):
+                    end_index = start_index + count
+                    group_r_stack = r_loss[:, start_index:end_index]
+                    group_u_0 = u_0[start_index:end_index]
+                    group_presence = input_presence[start_index:end_index]
 
-                _, group_activ_penal, group_error, group_variance = memory_loss_integral(
-                    model.F, group_r_stack, group_u_0, group_presence,
-                    lambda_err=lambda_err, lambda_reg=lambda_reg
-                )
+                    _, group_activ_penal, group_error, group_variance = memory_loss_integral(
+                        model.F, group_r_stack, group_u_0, group_presence,
+                        lambda_err=lambda_err, lambda_reg=lambda_reg
+                    )
 
-                history["group_errors"][i].append(group_error.item())
-                history["group_activ"][i].append((group_activ_penal/lambda_reg).item())
-                history["group_std"][i].append(group_variance.sqrt().item())  # Record std (sqrt of variance)
+                    history["group_errors"][i].append(group_error.item())
+                    history["group_activ"][i].append((group_activ_penal/lambda_reg).item())
+                    history["group_std"][i].append(group_variance.sqrt().item())  # Record std (sqrt of variance)
 
-                start_index = end_index
+                    start_index = end_index
 
-            # Update progress bar
-            if epoch%10 == 0:
+                # Update progress bar
                 pbar_epoch.set_postfix({
                     "Error": f"{history['error_per_epoch'][-1]:.4f}",
                     "Avg Activ": f"{history['activation_per_epoch'][-1]:.4f}"
@@ -142,7 +142,7 @@ def train(model, model_dir, history=None):
                 pbar_epoch.update(10)
 
             # Save model and history every 200 epochs
-            if epoch%200 == 0:
+            if epoch% (logging_period*20) == 0:
                 save_model_and_history(model, history, model_dir)
 
     return history

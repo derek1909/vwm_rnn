@@ -178,7 +178,7 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     fig.tight_layout()
     # plt.show()
 
-def plot_group_training_history(group_errors, group_stds, group_activ, item_num):
+def plot_group_training_history(group_errors, group_stds, group_activ, item_num, logging_period):
     """
     Plots the error and error bars for each group across epochs, with each group in a separate subplot,
     and annotates the end value for each group.
@@ -188,9 +188,10 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num)
     - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over epochs.
     - group_activ: List of lists, where each sublist contains average activation penalties for a group over epochs.
     - item_num: List of the number of items in each group (e.g., [1, 2, 3, 4] for 4 groups).
+    - logging_period: The interval of epochs at which the errors are recorded.
     """
     num_groups = len(group_errors)
-    epochs = np.arange(1, len(group_errors[0]) + 1)
+    epochs = np.arange(1, len(group_errors[0]) + 1) * logging_period
 
     fig, axes = plt.subplots(num_groups, 1, figsize=(8,2*num_groups), sharex=True)
     if num_groups == 1:  # if only one group exists

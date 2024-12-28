@@ -24,7 +24,7 @@ if __name__ == "__main__":
 
     # Plot training curves
     if history:
-        plot_group_training_history(history["group_errors"], history["group_std"], history["group_activ"], item_num)
+        plot_group_training_history(history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
 
     if fpf_bool:
         fixed_points_finder(model)

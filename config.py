@@ -1,7 +1,7 @@
 # Model parameters
 max_item_num = 8
 item_num = [1, 3, 5, 7]
-num_neurons = 512
+num_neurons = 256
 tau = 50
 dt = 10
 encode_noise = 0.01 # rad
@@ -17,19 +17,21 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = True  # Set to True if training is required
-train_from_scratch = True
-num_epochs = int(3e4)
-eta =1e-5  # learning_rate
+train_from_scratch = False
+num_epochs = int(1)
+eta = 2e-6  # learning_rate
 lambda_reg = 5e-4  # coeff for activity penalty
 lambda_err = 1.0  # coeff for error penalty
 num_trials = 256  # Number of trials per epoch
+logging_period = 20 # record progress every 10 epoch
 
 # Model and logging parameters
-rnn_name = "512euron_8items_PI"
+rnn_name = "256euron_8items_PI"
 model_dir = f"rnns/{rnn_name}"
+cuda_device = 0
 
 # Fixed Point Finder parameters
-fpf_bool = True
+fpf_bool = False
 fpf_N_init = 1024 # Number of initial states for optimization
 fpf_noise_scale = 0.5  # Standard deviation of noise added to states
 fpf_hps = { # Hyperparameters for fixed point finder
@@ -41,21 +43,19 @@ fpf_hps = { # Hyperparameters for fixed point finder
 }
 
 
-
 # Auto-detect device
 import torch
 if torch.cuda.is_available():
-    device = 'cuda'  # Use the first CUDA device
-    # fpf_bool = True # do not do fixed point analysis on server
-
+    for i in range(torch.cuda.device_count()):
+        torch.cuda.set_device(i)
+        device = f'cuda:{cuda_device}'  # Use the first available CUDA device
+        break
 else:
-    device = 'cpu'  # Fallback to CPU
-
+    device = 'cpu'  # Fallback to CPU if CUDA is not available
 
 # Save config
 import json
 import os
-
 # Define the configuration dictionary
 config = {
     "model_params": {
