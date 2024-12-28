@@ -8,8 +8,12 @@ Please direct correspondence to mgolub@cs.washington.edu
 
 import numpy as np
 import ipdb
+import os
+from tqdm import tqdm
 
 from sklearn.decomposition import PCA
+from sklearn.cross_decomposition import CCA
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pickle
@@ -73,7 +77,7 @@ def plot_fps(fps,
     Returns:
         None.
     '''
-
+    ## Prepare ax ##
     FONT_WEIGHT = 'bold'
     if fig is None:
         FIG_WIDTH = 6 # inches
@@ -116,10 +120,6 @@ def plot_fps(fps,
         ax.set_zlabel('PC 3', fontweight=FONT_WEIGHT)
         ax.set_ylabel('PC 2', fontweight=FONT_WEIGHT)
 
-        # For generating figure in paper.md
-        # ax.set_xticks([-2, -1, 0, 1, 2])
-        # ax.set_yticks([-1, 0, 1])
-        # ax.set_zticks([-1, 0, 1])
     else:
         # For 1D or 0D networks (i.e., never)
         pca = None
@@ -128,6 +128,7 @@ def plot_fps(fps,
         if n_states == 2:
             ax.ylabel('Hidden 2', fontweight=FONT_WEIGHT)
 
+    ## Plot blue trajectory from state_traj and plot_batch_idx ##
     if state_traj is not None:
         if plot_batch_idx is None:
             plot_batch_idx = list(range(n_batch))
@@ -139,8 +140,12 @@ def plot_fps(fps,
                 z_idx = pca.transform(x_idx[plot_time_idx, :])
             else:
                 z_idx = x_idx[plot_time_idx, :]
-            plot_123d(ax, z_idx, color='b', linewidth=0.2)
+            # plot_123d(ax, z_idx, color='b', linewidth=0.2)
+            ax.plot(z_idx[:, 0], z_idx[:, 1], z_idx[:, 2], color='b', linewidth=0.2)
+            ax.scatter(z_idx[0, 0], z_idx[0, 1], z_idx[0, 2], marker='x', s=9, color='b') # Start
+            ax.scatter(z_idx[-1, 0], z_idx[-1, 1], z_idx[-1, 2], marker='^', s=9, color='b') # End
 
+    ## Plot fixed points (red, black) ##
     for init_idx in range(n_inits):
         plot_fixed_point(
             ax,
@@ -148,8 +153,11 @@ def plot_fps(fps,
             pca,
             scale=mode_scale)
 
-    # Save the figure from multiple angles if save_base_path is provided
+    ## Save the figure from multiple angles if save_base_path is provided ##
     if save_path is not None:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
         for angle in angles:
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
@@ -159,9 +167,32 @@ def plot_fps(fps,
         with open(f'{save_path}/fpf_3d.fig.pickle', 'wb') as file:
             pickle.dump(fig, file)  
 
-    # ipdb.set_trace()
 
     return fig
+
+def plot_F_vs_PCA_1item(F, hidden_state_end, save_path):
+    [n_batch, n_states] = hidden_state_end.shape
+
+    pca = PCA(n_components=2)
+    pca.fit(hidden_state_end)
+    pca_points = pca.transform(hidden_state_end)
+
+    decode_points = hidden_state_end @ F.T
+
+    # 2D scatter plot
+    plt.figure(figsize=(5, 5))
+    plt.scatter(pca_points[:, 0], pca_points[:, 1], c='blue', label='PCA Points', alpha=0.6)
+    plt.scatter(decode_points[:, 0], decode_points[:, 1], c='red', label='Decoded Points', alpha=0.6)
+    plt.xlabel('Component 1')
+    plt.ylabel('Component 2')
+    plt.title('PCA and Decoded Points (2D)')
+    plt.legend()
+    plt.grid(True)
+
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    plt.savefig(f'{save_path}/pca_vs_F.png', dpi=300, bbox_inches='tight')
+    plt.close()
 
 def plot_fixed_point(ax, fp, pca,
 	scale=1.0,
@@ -300,9 +331,11 @@ def plot_123d(ax, z, **kwargs):
         None.
     '''
     n_states = z.shape[1]
-    if n_states ==3:
+    if n_states == 3:
         ax.plot(z[:, 0], z[:, 1], z[:, 2], **kwargs)
     elif n_states == 2:
         ax.plot(z[:, 0], z[:, 1], **kwargs)
     elif n_states == 1:
         ax.plot(z, **kwargs)
+    else:
+        raise ValueError("z should have 1, 2, or 3 columns corresponding to 1D, 2D, or 3D data.")

@@ -139,10 +139,10 @@ def train(model, model_dir, history=None):
                     "Error": f"{history['error_per_epoch'][-1]:.4f}",
                     "Avg Activ": f"{history['activation_per_epoch'][-1]:.4f}"
                 })
-                pbar_epoch.update(10)
+                pbar_epoch.update(logging_period)
 
-            # Save model and history every 200 epochs
-            if epoch% (logging_period*20) == 0:
+            # Save model and history every logging_period*10 epochs
+            if epoch% (logging_period*10) == 0:
                 save_model_and_history(model, history, model_dir)
 
     return history
