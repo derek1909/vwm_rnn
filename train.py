@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from rnn import *
 from config import *
-from utils import save_model_and_history, generate_input_single, generate_input_all
+from utils import save_model_and_history, generate_target, generate_input
 
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
@@ -80,7 +80,7 @@ def train(model, model_dir, history=None):
                 input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
-            u_t = generate_input_all(
+            u_t = generate_input(
                 presence=input_presence,
                 theta=input_thetas,
                 noise_level=encode_noise,
@@ -97,7 +97,7 @@ def train(model, model_dir, history=None):
             step_threshold = int((T_init + T_stimi + T_delay) / dt)
             r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
 
-            u_0 = generate_input_single(input_presence, input_thetas, stimuli_present=True, alpha=0)  # u_0 has no noise
+            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True, alpha=0)  # u_0 has no noise
 
             # Calculate total loss and group-wise errors
             total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(

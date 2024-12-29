@@ -10,13 +10,18 @@ import numpy as np
 import ipdb
 import os
 from tqdm import tqdm
+import torch
 
 from sklearn.decomposition import PCA
 from sklearn.cross_decomposition import CCA
-
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import pickle
+
+from rnn import *
+from config import *
+from utils import *
+from train import *
 
 def plot_fps(fps,
     state_traj=None,
@@ -339,3 +344,38 @@ def plot_123d(ax, z, **kwargs):
         ax.plot(z, **kwargs)
     else:
         raise ValueError("z should have 1, 2, or 3 columns corresponding to 1D, 2D, or 3D data.")
+    
+def prepare_state(model):
+    # Generate presence for each group
+    input_presence = torch.zeros(num_trials, max_item_num, requires_grad=True, device=device)
+    trials_per_group = num_trials // len(item_num)  # Ensure equal split
+    remaining_trials = num_trials % len(item_num)  # Handle leftover trials
+    trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
+
+    start_index = 0
+    for i, count in enumerate(trial_counts):
+        end_index = start_index + count
+        one_hot_indices = torch.stack([torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)])
+        input_presence_temp = input_presence.clone()
+        input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
+        input_presence = input_presence_temp
+        start_index = end_index
+
+    # input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi)
+    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
+
+    u_t = generate_input(
+        presence=input_presence,
+        theta=input_thetas,
+        noise_level=0.0,
+        T_init=T_init,
+        T_stimi=T_stimi,
+        T_delay=T_delay,
+        T_decode=T_decode,
+        dt=dt,
+        alpha=positive_input,
+    )
+    
+    r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
+
+    return u_t.detach().cpu(), r_output.detach().cpu()

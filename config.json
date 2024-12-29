@@ -8,7 +8,7 @@
         "encode_noise": 0.01,
         "process_noise": 0.5,
         "decode_noise": 0.0,
-        "positive_input": 2,
+        "positive_input": 0,
         "T_init": 20,
         "T_stimi": 400,
         "T_delay": 0,
@@ -17,7 +17,7 @@
     "training_params": {
         "train_rnn": true,
         "train_from_scratch": false,
-        "num_epochs": 2e1,
+        "num_epochs": 2e4,
         "eta": 1e-5,
         "lambda_reg": 5e-4,
         "lambda_err": 1.0,
@@ -25,7 +25,7 @@
         "logging_period": 10
     },
     "model_and_logging_params": {
-        "rnn_name": "config_test",
+        "rnn_name": "256neuron_1item_PIhalf",
         "cuda_device": 0
     },
     "fpf_params": {
