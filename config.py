@@ -1,103 +1,65 @@
+import torch
+import json
+import os
+import shutil
+
+# Load the configuration from the JSON file
+with open('config.json', "r") as f:
+    config = json.load(f)
+
+# Extract configurations
+model_params = config["model_params"]
+training_params = config["training_params"]
+logging_params = config["model_and_logging_params"]
+fpf_params = config["fpf_params"]
+
 # Model parameters
-max_item_num = 1
-item_num = [1]
-num_neurons = 256
-tau = 50
-dt = 10
-encode_noise = 0.01 # rad
-process_noise = 0.5 # Hz
-decode_noise = 0.0
-positive_input = 1 # positive input. 0 if no need to be positive.
-T_init = 20
-T_stimi = 400
-T_delay = 0
-T_decode = 800
+max_item_num = model_params["max_item_num"]
+item_num = model_params["item_num"]
+num_neurons = model_params["num_neurons"]
+tau = model_params["tau"]
+dt = model_params["dt"]
+encode_noise = model_params["encode_noise"] # rad
+process_noise = model_params["process_noise"] # Hz
+decode_noise = model_params["decode_noise"]
+positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
+T_init = model_params["T_init"]
+T_stimi = model_params["T_stimi"]
+T_delay = model_params["T_delay"]
+T_decode = model_params["T_decode"]
 T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
 
 # Training parameters
-train_rnn = False  # Set to True if training is required
-train_from_scratch = False
-num_epochs = int(1e4)
-eta = 1e-5  # learning_rate
-lambda_reg = 5e-4  # coeff for activity penalty
-lambda_err = 1.0  # coeff for error penalty
-num_trials = 64  # Number of trials per epoch
-logging_period = 10 # record progress every 10 epoch
+train_rnn = training_params["train_rnn"]  # Set to True if training is required
+train_from_scratch = training_params["train_from_scratch"]
+num_epochs = int(training_params["num_epochs"]) 
+eta = training_params["eta"] # learning_rate
+lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
+lambda_err = training_params["lambda_err"]  # coeff for error penalty
+num_trials = training_params["num_trials"]  # Number of trials per epoch
+logging_period = training_params["logging_period"]  # record progress every 10 epoch
 
 # Model and logging parameters
-rnn_name = "256neuron_1items_PI"
+rnn_name = logging_params["rnn_name"]
 model_dir = f"rnns/{rnn_name}"
-cuda_device = 0
+cuda_device = int(logging_params["cuda_device"])
 
 # Fixed Point Finder parameters
-fpf_bool = True
-fpf_pca_bool = True
-fpf_name = 'stimuli' # stimuli or decode.
-fpf_N_init = 512 # Number of initial states for optimization
-fpf_noise_scale = 0.0  # Standard deviation of noise added to states
-fpf_hps = { # Hyperparameters for fixed point finder
-    'max_iters': 5000,
-    'lr_init': 1.0,
-    'outlier_distance_scale': 10.0,
-    'verbose': True,
-    'super_verbose': True
-}
+fpf_bool = fpf_params["fpf_bool"]
+fpf_pca_bool = fpf_params["fpf_pca_bool"]
+fpf_names = fpf_params["fpf_names"] # stimuli or decode.
+fpf_N_init = fpf_params["fpf_N_init"] # Number of initial states for optimization
+fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
+fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 
-
-# Auto-detect device
-import torch
 if torch.cuda.is_available():
-    for i in range(torch.cuda.device_count()):
-        torch.cuda.set_device(i)
-        device = f'cuda:{cuda_device}'  # Use the first available CUDA device
-        break
+    torch.cuda.set_device(cuda_device)
+    device = f'cuda:{cuda_device}'
 else:
     device = 'cpu'  # Fallback to CPU if CUDA is not available
 
-# Save config
-import json
-import os
-# Define the configuration dictionary
-config = {
-    "model_params": {
-        "max_item_num": max_item_num,
-        "num_neurons": num_neurons,
-        "tau": tau,
-        "dt": dt,
-        "encode_noise": encode_noise,
-        "process_noise": process_noise,
-        "decode_noise": decode_noise,
-        "T_init": T_init,
-        "T_stimi": T_stimi,
-        "T_delay": T_delay,
-        "T_decode": T_decode,
-        "T_simul": T_simul,
-        "simul_steps": simul_steps,
-        "item_num": item_num,
-    },
-    "training_params": {
-        "train_rnn": train_rnn,
-        "train_from_scratch": train_from_scratch,
-        "num_epochs": num_epochs,
-        "eta": eta,
-        "lambda_reg": lambda_reg,
-        "lambda_err": lambda_err,
-        "num_trials": num_trials,
-    },
-    "model_and_logging_params": {
-        "rnn_name": rnn_name,
-        "model_dir": model_dir,
-        "device": device,
-    }
-}
-
-# Save the configuration to a JSON file
 os.makedirs(model_dir, exist_ok=True)  # Create directory if it doesn't exist
-config_path = os.path.join(model_dir, "config.json")
-
-with open(config_path, "w") as f:
-    json.dump(config, f, indent=4)
-
-print(f"Configuration saved to {config_path}")
+shutil.copyfile('./config.json', f'{model_dir}/config.json')
+print(f"Configuration saved to {model_dir}/config.json")
 print(f"Using device: {device}")

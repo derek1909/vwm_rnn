@@ -66,38 +66,6 @@ def generate_input_all(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, 
 
     return u_t_stack
 
-# def evaluate(model, angle_targets):
-#     """
-#     Evaluates the model's decoded orientations for given target angles.
-
-#     Args:
-#         model: The RNN memory model.
-#         angle_targets (list): List of target angles for evaluation.
-
-#     Returns:
-#         dict: A dictionary mapping each angle target to its decoded orientations over time.
-#     """
-#     decoded_orientations_dict = {}
-#     presence = torch.tensor([1], device=device).reshape(1, max_item_num)
-
-#     for angle_target in angle_targets:
-#         decoded_orientations_after = []
-#         theta = torch.tensor([angle_target], device=device).reshape(1, max_item_num)
-#         r = torch.zeros(1, num_neurons, device=device)
-
-#         for step in range(simul_steps):
-#             time = step * dt
-#             u_t = generate_input(presence, theta, noise_level=encode_noise, stimuli_present=(T_init < time < T_stimi + T_init))
-#             r = model(r, u_t)
-#             decoded_memory = decode(model.F, r)
-#             decoded_memory = decoded_memory.view(decoded_memory.size(0), -1, 2)
-#             orientation = torch.atan2(decoded_memory[:, :, 1], decoded_memory[:, :, 0])
-#             decoded_orientations_after.append(orientation[0, 0].item())
-
-#         decoded_orientations_dict[angle_target] = decoded_orientations_after
-
-#     return decoded_orientations_dict
-
 def plot_results(decoded_orientations_dict):
     plt.figure(figsize=(5,4))
     time_steps = torch.tensor([step * dt for step in range(simul_steps)], device=device)
