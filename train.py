@@ -48,9 +48,13 @@ def train(model, model_dir, history=None):
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
         }
 
-    # Generate input_thetas
-    # input_thetas = ((torch.rand(num_trials, max_item_num) * 2 * torch.pi) - torch.pi).requires_grad_()
-    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1).repeat(1, max_item_num).requires_grad_()
+    # Initialize buffers to store recent history
+    error_buffer = []
+    error_std_buffer = []
+    activation_buffer = []
+    group_error_buffers = [[] for _ in item_num]  # Buffers for each group
+    group_std_buffers = [[] for _ in item_num]
+    group_activ_buffers = [[] for _ in item_num]
 
     # Split num_trials into len(num_item) groups
     trials_per_group = num_trials // len(item_num)  # Ensure equal split
@@ -89,7 +93,7 @@ def train(model, model_dir, history=None):
                 T_delay=T_delay,
                 T_decode=T_decode,
                 dt=dt,
-                alpha=positive_input
+                positive_input=positive_input
             )
             
             r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
@@ -97,42 +101,63 @@ def train(model, model_dir, history=None):
             step_threshold = int((T_init + T_stimi + T_delay) / dt)
             r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
 
-            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True, alpha=0)  # u_0 has no noise
+            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
 
             # Calculate total loss and group-wise errors
             total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(
                 model.F, r_loss, u_0, input_presence,
                 lambda_err=lambda_err, lambda_reg=lambda_reg
             )
-            history["error_per_epoch"].append(total_error.item())
-            history["error_std_per_epoch"].append(total_error_var.sqrt().item())
-            history["activation_per_epoch"].append((total_activ_penal / lambda_reg).item())
 
             total_loss.backward()
             optimizer.step()
 
-            if model.positive_input >= 1:
+            if model.positive_input:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
 
+            # Append errors and activs to the history buffers
+            error_buffer.append(total_error.item())
+            error_std_buffer.append(total_error_var.sqrt().item())
+            activation_buffer.append((total_activ_penal / lambda_reg).item())
+
+            start_index = 0
+            for i, count in enumerate(trial_counts):
+                end_index = start_index + count
+                group_r_stack = r_loss[:, start_index:end_index]
+                group_u_0 = u_0[start_index:end_index]
+                group_presence = input_presence[start_index:end_index]
+
+                _, group_activ_penal, group_error, group_variance = memory_loss_integral(
+                    model.F, group_r_stack, group_u_0, group_presence,
+                    lambda_err=lambda_err, lambda_reg=lambda_reg
+                )
+
+                group_error_buffers[i].append(group_error.item())
+                group_activ_buffers[i].append((group_activ_penal/lambda_reg).item())
+                group_std_buffers[i].append(group_variance.sqrt().item())
+
+                start_index = end_index
+
             if epoch%logging_period == 0:
-                # Calculate group-wise mean error and variance
-                start_index = 0
-                for i, count in enumerate(trial_counts):
-                    end_index = start_index + count
-                    group_r_stack = r_loss[:, start_index:end_index]
-                    group_u_0 = u_0[start_index:end_index]
-                    group_presence = input_presence[start_index:end_index]
+                # Calculate averages for buffers and store in history
+                history["error_per_epoch"].append(sum(error_buffer) / len(error_buffer))
+                history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
+                history["activation_per_epoch"].append(sum(activation_buffer) / len(activation_buffer))
 
-                    _, group_activ_penal, group_error, group_variance = memory_loss_integral(
-                        model.F, group_r_stack, group_u_0, group_presence,
-                        lambda_err=lambda_err, lambda_reg=lambda_reg
-                    )
+                for i in range(len(group_error_buffers)):
+                    history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))
+                    history["group_std"][i].append(sum(group_std_buffers[i]) / len(group_std_buffers[i]))
+                    history["group_activ"][i].append(sum(group_activ_buffers[i]) / len(group_activ_buffers[i]))
 
-                    history["group_errors"][i].append(group_error.item())
-                    history["group_activ"][i].append((group_activ_penal/lambda_reg).item())
-                    history["group_std"][i].append(group_variance.sqrt().item())  # Record std (sqrt of variance)
-
-                    start_index = end_index
+                # Clear all buffers
+                error_buffer.clear()
+                error_std_buffer.clear()
+                activation_buffer.clear()
+                for i in range(len(group_error_buffers)):
+                    if len(group_error_buffers[i]) > logging_period:
+                        group_error_buffers[i].clear()
+                        group_std_buffers[i].clear()
+                        group_activ_buffers[i].clear()
 
                 # Update progress bar
                 pbar_epoch.set_postfix({
