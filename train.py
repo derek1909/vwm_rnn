@@ -2,6 +2,8 @@ import torch
 import torch.optim as optim
 import torch.nn.functional as F
 from tqdm import tqdm
+from early_stopping_pytorch.early_stopping import EarlyStopping
+
 from rnn import *
 from config import *
 from utils import save_model_and_history, generate_target, generate_input
@@ -36,6 +38,9 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
 
 def train(model, model_dir, history=None):
     optimizer = optim.Adam(model.parameters(), lr=eta)
+
+    early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
+
 
     # If no history is provided, initialize empty history
     if history is None:
@@ -139,6 +144,8 @@ def train(model, model_dir, history=None):
                 start_index = end_index
 
             if epoch%logging_period == 0:
+                earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
+
                 # Calculate averages for buffers and store in history
                 history["error_per_epoch"].append(sum(error_buffer) / len(error_buffer))
                 history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
@@ -162,7 +169,8 @@ def train(model, model_dir, history=None):
                 # Update progress bar
                 pbar_epoch.set_postfix({
                     "Error": f"{history['error_per_epoch'][-1]:.4f}",
-                    "Avg Activ": f"{history['activation_per_epoch'][-1]:.4f}"
+                    "Activ": f"{history['activation_per_epoch'][-1]:.4f}",
+                    "Cntr": f"{earlystop_counter}/{early_stop_patience}"
                 })
                 pbar_epoch.update(logging_period)
 
@@ -170,4 +178,7 @@ def train(model, model_dir, history=None):
             if epoch% (logging_period*10) == 0:
                 save_model_and_history(model, history, model_dir)
 
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
     return history
