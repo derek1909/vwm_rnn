@@ -374,7 +374,7 @@ class FixedPointFinderTorch(FixedPointFinderBase):
 
 
         # J_bxbxdxd = excessive_jacobian(x_bxd, inputs_bxd)
-        J_list = sequential_jacobian(x_bxd, inputs_bxd)
+        # J_list = sequential_jacobian(x_bxd, inputs_bxd)
 
         J_np = J_bxdxd.detach().cpu().numpy()
 

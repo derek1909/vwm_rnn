@@ -19,6 +19,7 @@ Please direct correspondence to mgolub@cs.washington.edu
 import pdb
 import numpy as np
 import pickle
+from scipy.linalg import eig
 
 class FixedPoints(object):
     '''
@@ -524,7 +525,7 @@ class FixedPoints(object):
         self.n = self.n + new_fps.n
         self.assert_valid_shapes()
 
-    def decompose_jacobians(self, do_batch=True, str_prefix=''):
+    def decompose_jacobians(self, str_prefix=''):
         '''Adds the following fields to the FixedPoints object:
 
         eigval_J_xstar: [n x n_states] numpy array with eigval_J_xstar[i, :]
@@ -546,7 +547,6 @@ class FixedPoints(object):
         Returns:
             None.
         '''
-
         if self.has_decomposed_jacobians:
             print('%sJacobians have already been decomposed, '
                 'not repeating.' % str_prefix)
@@ -555,44 +555,15 @@ class FixedPoints(object):
         n = self.n # number of FPs represented in this object
         n_states = self.n_states # dimensionality of each state
 
-        if do_batch:
-            # Batch eigendecomposition
-            print('%sDecomposing Jacobians in a single batch.' % str_prefix)
+        print('%sDecomposing Jacobians.' % str_prefix)
 
-            # Check for NaNs in Jacobians
-            valid_J_idx = ~np.any(np.isnan(self.J_xstar), axis=(1,2))
-
-            if np.all(valid_J_idx):
-                # No NaNs, nothing to worry about.
-                e_vals_unsrt, e_vecs_unsrt = np.linalg.eig(self.J_xstar)
-            else:
-                # Set eigen-data to NaN if there are any NaNs in the
-                # corresponding Jacobian.
-                e_vals_unsrt = self._alloc_nan(
-                    (n, n_states), dtype=self.dtype_complex)
-                e_vecs_unsrt = self._alloc_nan(
-                    (n, n_states, n_states), dtype=dtype_complex)
-
-                e_vals_unsrt[valid_J_idx], e_vecs_unsrt[valid_J_idx] = \
-                    np.linalg.eig(self.J_xstar[valid_J_idx])
-
-        else:
-            print('%sDecomposing Jacobians one-at-a-time.' % str_prefix)
-            e_vals = []
-            e_vecs = []
-            for J in self.J_xstar:
-
-                if np.any(np.isnan(J)):
-                    e_vals_i = self._alloc_nan((n_states,))
-                    e_vecs_i = self._alloc_nan((n_states, n_states))
-                else:
-                    e_vals_i, e_vecs_i = np.linalg.eig(J)
-
-                e_vals.append(np.expand_dims(e_vals_i, axis=0))
-                e_vecs.append(np.expand_dims(e_vecs_i, axis=0))
-
-            e_vals_unsrt = np.concatenate(e_vals, axis=0)
-            e_vecs_unsrt = np.concatenate(e_vecs, axis=0)
+        e_vals_unsrt = self._alloc_nan(
+            (n, n_states), dtype=self.dtype_complex)
+        e_vecs_unsrt = self._alloc_nan(
+            (n, n_states, n_states), dtype=self.dtype_complex)
+        
+        for i in range(n):
+            e_vals_unsrt[i], e_vecs_unsrt[i] = eig(self.J_xstar[i])
 
         print('%sSorting by Eigenvalue magnitude.' % str_prefix)
         # For each FP, sort eigenvectors by eigenvalue magnitude
