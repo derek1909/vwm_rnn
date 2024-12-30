@@ -11,14 +11,15 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name):
 
     Args:
         model: Trained RNN model (torch.nn.Module)
-        hidden_states: Hidden states collected during simulation (steps, trials, neurons)
+            The recurrent neural network to analyze.
+        input_states: The input vector (num_trials, 2 * max_item_num)
+        hidden_states: Hidden states collected during simulation (trials, steps, neuron)
+        fpf_name: the time period for fixed point analysis (e.g., 'stimuli', 'decode').
 
     Returns:
-        unique_fps: Unique fixed points found.
+        unique_fps: torch.Tensor
+            The unique fixed points found during the analysis.
     """
-
-    # (steps, trials, neurons) -> [n_batch x n_time x n_states]
-    initial_states = hidden_states.reshape(num_trials, -1, num_neurons)
 
     # Sample noisy initial states
     fpf = FixedPointFinder(model, **fpf_hps)
@@ -44,13 +45,16 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name):
     valid_bxt[:, start_t_idx:end_t_idx] = 1
 
     # sampled_states has shape [n_inits x n_states]
-    sampled_states = fpf.sample_states(initial_states, n_inits=fpf_N_init, noise_scale=fpf_noise_scale, valid_bxt=valid_bxt)
+    sampled_states, trial_indices = fpf.sample_states(hidden_states, n_inits=fpf_N_init, noise_scale=fpf_noise_scale, valid_bxt=valid_bxt)
 
     # Inputs to analyze the RNN in the absence of external stimuli
-    inputs = np.zeros([1, max_item_num * 2])
+    if fpf_name == 'stimuli':
+        inputs = input_states[trial_indices].numpy() # [n_inits x max_item_num*2]
+    else:
+        inputs = np.zeros([1, max_item_num * 2])
 
     # Find fixed points
-    unique_fps, all_fps = fpf.find_fixed_points(sampled_states, inputs)
+    unique_fps, _ = fpf.find_fixed_points(sampled_states, inputs)
 
     # Visualization
     trials_to_plot = list(range(min(64, num_trials)))
@@ -73,19 +77,20 @@ def fixed_points_finder(model):
     torch.manual_seed(42)
 
     ## Simulate to collect hidden states ##
-    u_t, hidden_states = prepare_state(model)
+    # u_t: (trials, steps, neurons)
+    # hidden_states: (trials, steps, neuron)
+    u_t, hidden_states, thetas = prepare_state(model) 
     model = model.to('cpu')
 
     for fpf_name in fpf_names:
         print(f"Running Fixed Point Analysis for {fpf_name}")
-        unique_fps = analyze_fixed_points(model, u_t, hidden_states, fpf_name)
+        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_name)
         print(f"Fixed points found: {len(unique_fps)}")
 
     if fpf_pca_bool:
         plot_F_vs_PCA_1item(
-            model.F,
+            model.F.detach(),
             hidden_states[:,-1,:],
+            thetas,
             save_path=f'{model_dir}'
         )
-
-    return unique_fps

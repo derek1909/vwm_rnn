@@ -318,7 +318,7 @@ class FixedPointFinderBase(object):
         assert not np.any(np.isnan(states)),\
             'Detected NaNs in sampled states. Check state_traj and valid_bxt.'
 
-        return states
+        return states, trial_indices
 
     def find_fixed_points(self, initial_states, inputs, cond_ids=None):
         '''Finds RNN fixed points and the Jacobians at the fixed points.

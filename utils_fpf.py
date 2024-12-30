@@ -175,24 +175,39 @@ def plot_fps(fps,
 
     return fig
 
-def plot_F_vs_PCA_1item(F, hidden_state_end, save_path):
+def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, save_path):
+    # thetas: (trials,1) -> (trials,)
+    thetas = thetas.detach().numpy().squeeze()
+
     [n_batch, n_states] = hidden_state_end.shape
 
     pca = PCA(n_components=2)
     pca.fit(hidden_state_end)
-    pca_points = pca.transform(hidden_state_end)
+    pca_points = pca.transform(hidden_state_end) # (trials, 2*max_items)
 
     decode_points = hidden_state_end @ F.T
 
     # 2D scatter plot
     plt.figure(figsize=(5, 5))
-    plt.scatter(pca_points[:, 0], pca_points[:, 1], c='blue', label='PCA Points', alpha=0.6)
-    plt.scatter(decode_points[:, 0], decode_points[:, 1], c='red', label='Decoded Points', alpha=0.6)
+    scatter1 = plt.scatter(
+        pca_points[:, 0], pca_points[:, 1], c=thetas, cmap='rainbow',
+        label='PCA Points', marker='^', s=60, edgecolor='black', linewidth=0.5
+    )
+    scatter2 = plt.scatter(
+        decode_points[:, 0], decode_points[:, 1], c=thetas, cmap='rainbow',
+        label='Decoded Points', marker='o', s=40, edgecolor='black', linewidth=0.5
+    )
+    cbar = plt.colorbar(scatter1)
+    cbar.set_label('Target Theta')
+    
+    plt.axis('equal')
     plt.xlabel('Component 1')
     plt.ylabel('Component 2')
-    plt.title('PCA and Decoded Points (2D)')
+    plt.title('PCA vs Decoded Points (2D)')
     plt.legend()
-    plt.grid(True)
+    plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
+    plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
+    plt.grid(True, linestyle='--', alpha=0.6)
 
     if not os.path.exists(save_path):
         os.makedirs(save_path)
@@ -378,4 +393,4 @@ def prepare_state(model):
     
     r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
 
-    return u_t.detach().cpu(), r_output.detach().cpu()
+    return u_t.detach().cpu(), r_output.detach().cpu(), input_thetas.detach().cpu()
