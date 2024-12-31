@@ -7,6 +7,7 @@ from early_stopping_pytorch.early_stopping import EarlyStopping
 from rnn import *
 from config import *
 from utils import save_model_and_history, generate_target, generate_input
+from fixedpoint import fixed_points_finder
 
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
@@ -51,8 +52,12 @@ def train(model, model_dir, history=None):
             "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
+            "epochs": []
         }
-
+        start_epoch = 0
+    else:
+        start_epoch = history['epochs'][-1]
+        
     # Initialize buffers to store recent history
     error_buffer = []
     error_std_buffer = []
@@ -67,8 +72,8 @@ def train(model, model_dir, history=None):
     # Adjust trials count for each group (distribute leftovers)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
 
-    with tqdm(total=num_epochs, desc="Training Progress", unit="epoch") as pbar_epoch:
-        for epoch in range(num_epochs):
+    with tqdm(total=num_epochs, initial=start_epoch, desc="Training Progress", unit="epoch") as pbar_epoch:
+        for epoch in range(start_epoch, num_epochs):
             optimizer.zero_grad()
 
             # Generate presence for each group
@@ -85,7 +90,7 @@ def train(model, model_dir, history=None):
                 start_index = end_index
 
             # Update input_thetas every 20 epochs
-            if epoch % 20 == 0:
+            if (epoch % 20 == 0) or (epoch==start_epoch):
                 input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
@@ -143,13 +148,14 @@ def train(model, model_dir, history=None):
 
                 start_index = end_index
 
-            if epoch%logging_period == 0:
+            if epoch % logging_period == 0:
                 earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
                 # Calculate averages for buffers and store in history
                 history["error_per_epoch"].append(sum(error_buffer) / len(error_buffer))
                 history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
                 history["activation_per_epoch"].append(sum(activation_buffer) / len(activation_buffer))
+                history["epochs"].append(epoch)
 
                 for i in range(len(group_error_buffers)):
                     history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))
@@ -175,8 +181,13 @@ def train(model, model_dir, history=None):
                 pbar_epoch.update(logging_period)
 
             # Save model and history every logging_period*10 epochs
-            if epoch% (logging_period*10) == 0:
+            if epoch % (logging_period*10) == 0:
                 save_model_and_history(model, history, model_dir)
+
+            if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0):
+                cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
+                cloned_model.load_state_dict(model.state_dict())  # Copy weights
+                fixed_points_finder(cloned_model, epoch=epoch)
 
             if early_stopping.early_stop:
                 print("Early stopping")

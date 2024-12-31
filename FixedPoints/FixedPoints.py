@@ -555,7 +555,7 @@ class FixedPoints(object):
         n = self.n # number of FPs represented in this object
         n_states = self.n_states # dimensionality of each state
 
-        print('%sDecomposing Jacobians.' % str_prefix)
+        # print('%sDecomposing Jacobians.' % str_prefix)
 
         e_vals_unsrt = self._alloc_nan(
             (n, n_states), dtype=self.dtype_complex)
@@ -565,7 +565,7 @@ class FixedPoints(object):
         for i in range(n):
             e_vals_unsrt[i], e_vecs_unsrt[i] = eig(self.J_xstar[i])
 
-        print('%sSorting by Eigenvalue magnitude.' % str_prefix)
+        # print('%sSorting by Eigenvalue magnitude.' % str_prefix)
         # For each FP, sort eigenvectors by eigenvalue magnitude
         # (decreasing order).
         mags_unsrt = np.abs(e_vals_unsrt) # shape (n,)

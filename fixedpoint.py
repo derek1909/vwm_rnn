@@ -5,7 +5,7 @@ import ipdb
 from FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
 from utils_fpf import *
 
-def analyze_fixed_points(model, input_states, hidden_states, fpf_name):
+def analyze_fixed_points(model, input_states, hidden_states, fpf_dir, fpf_name):
     """
     Analyze and visualize fixed points of the trained RNN.
 
@@ -63,13 +63,14 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name):
         state_traj=hidden_states,
         plot_batch_idx=trials_to_plot,
         plot_start_time=T_init,
-        save_path=f'{model_dir}/{fpf_name}',
+        fpf_name=fpf_name,
+        fpf_dir=f'{fpf_dir}/{fpf_name}',
         )
 
     return unique_fps
 
 
-def fixed_points_finder(model):
+def fixed_points_finder(model, epoch=None):
     """
     Simulate the RNN to collect hidden states and find fixed points.
     """
@@ -79,18 +80,22 @@ def fixed_points_finder(model):
     ## Simulate to collect hidden states ##
     # u_t: (trials, steps, neurons)
     # hidden_states: (trials, steps, neuron)
-    u_t, hidden_states, thetas = prepare_state(model) 
-    model = model.to('cpu')
+    u_t, hidden_states, thetas = prepare_state(model) # all on cpu
+
+    if epoch is not None:
+        fpf_dir=f'{model_dir}/fpf/epoch{epoch}'
+    else:
+        fpf_dir=f'{model_dir}/fpf/final'
 
     for fpf_name in fpf_names:
-        print(f"Running Fixed Point Analysis for {fpf_name}")
-        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_name)
-        print(f"Fixed points found: {len(unique_fps)}")
+        # print(f"Running Fixed Point Analysis for {fpf_name}")
+        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_dir, fpf_name)
+        # print(f"Fixed points found: {len(unique_fps)}")
 
     if fpf_pca_bool:
         plot_F_vs_PCA_1item(
-            model.F.detach(),
+            model.F.detach().cpu(),
             hidden_states[:,-1,:],
             thetas,
-            save_path=f'{model_dir}'
+            fpf_dir = fpf_dir,
         )

@@ -30,7 +30,8 @@ def plot_fps(fps,
     plot_stop_time=None,
     mode_scale=0.25,
     fig=None,
-    save_path=None,):
+    fpf_name='',
+    fpf_dir=None,):
 
     '''Plots a visualization and analysis of the unique fixed points.
 
@@ -159,23 +160,23 @@ def plot_fps(fps,
             scale=mode_scale)
 
     ## Save the figure from multiple angles if save_base_path is provided ##
-    if save_path is not None:
-        if not os.path.exists(save_path):
-            os.makedirs(save_path)
+    if model_dir is not None:
+        if not os.path.exists(fpf_dir):
+            os.makedirs(fpf_dir)
 
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
         for angle in angles:
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
-            fig.savefig(f"{save_path}/fpf_angle_{angle}.png", format='png', dpi=300)
-            plt.draw()
-            plt.pause(0.001)  # Pause to ensure the plot updates
-        with open(f'{save_path}/fpf_3d.fig.pickle', 'wb') as file:
+            fig.savefig(f"{fpf_dir}/fpf_angle_{angle}_{fpf_name}.png", format='png', dpi=300)
+            plt.close()
+
+        with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
             pickle.dump(fig, file)  
 
 
     return fig
 
-def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, save_path):
+def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, fpf_dir):
     # thetas: (trials,1) -> (trials,)
     thetas = thetas.detach().numpy().squeeze()
 
@@ -209,9 +210,9 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, save_path):
     plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
     plt.grid(True, linestyle='--', alpha=0.6)
 
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    plt.savefig(f'{save_path}/pca_vs_F.png', dpi=300, bbox_inches='tight')
+    if not os.path.exists(fpf_dir):
+        os.makedirs(fpf_dir)
+    plt.savefig(f'{fpf_dir}/pca_vs_F.png', dpi=300, bbox_inches='tight')
     plt.close()
 
 def plot_fixed_point(ax, fp, pca,

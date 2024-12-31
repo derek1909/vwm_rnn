@@ -144,12 +144,13 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     fig.tight_layout()
     # plt.show()
 
-def plot_group_training_history(group_errors, group_stds, group_activ, item_num, logging_period):
+def plot_group_training_history(epochs, group_errors, group_stds, group_activ, item_num, logging_period):
     """
     Plots the error and error bars for each group across epochs, with each group in a separate subplot,
     and annotates the end value for each group.
 
     Parameters:
+    - epochs: epch number
     - group_errors: List of lists, where each sublist contains mean errors for a group over epochs.
     - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over epochs.
     - group_activ: List of lists, where each sublist contains average activation penalties for a group over epochs.
@@ -157,7 +158,6 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num,
     - logging_period: The interval of epochs at which the errors are recorded.
     """
     num_groups = len(group_errors)
-    epochs = np.arange(1, len(group_errors[0]) + 1) * logging_period
 
     fig, axes = plt.subplots(num_groups, 1, figsize=(8,2*num_groups), sharex=True)
     if num_groups == 1:  # if only one group exists
@@ -245,7 +245,7 @@ def plot_group_training_history(group_errors, group_stds, group_activ, item_num,
     file_path = os.path.join(model_dir, f'training_history_{rnn_name}.png')
     plt.savefig(file_path, dpi=300, bbox_inches="tight")
 
-def save_model_and_history(model, history, model_dir, model_name="model_path.pth", history_name="training_history.json"):
+def save_model_and_history(model, history, model_dir, model_name="model.pth", history_name="training_history.json"):
     """Saves the model state and training history to the specified directory."""
     os.makedirs(model_dir, exist_ok=True)
 
@@ -258,7 +258,7 @@ def save_model_and_history(model, history, model_dir, model_name="model_path.pth
     with open(history_path, 'w') as f:
         json.dump(history, f)
 
-def load_model_and_history(model, model_dir, model_name="model_path.pth", history_name="training_history.json"):
+def load_model_and_history(model, model_dir, model_name="model.pth", history_name="training_history.json"):
     """Loads the model state and training history from the specified directory."""
     model_path = os.path.join(model_dir, model_name)
     history_path = os.path.join(model_dir, history_name)
@@ -272,13 +272,6 @@ def load_model_and_history(model, model_dir, model_name="model_path.pth", histor
         with open(history_path, 'r') as f:
             history = json.load(f)
     else:
-        history = {
-            "error_per_epoch": [],  # Overall mean error per epoch
-            "error_std_per_epoch": [],  # std of overall error per epoch
-            "activation_per_epoch": [],
-            "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
-            "group_std": [[] for _ in item_num],  # List to store std of errors for each group
-            "group_activ": [[] for _ in item_num],
-        }
+        history = None
 
     return model, history

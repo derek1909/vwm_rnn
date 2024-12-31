@@ -744,13 +744,13 @@ class FixedPointFinderBase(object):
 
         init_non_outlier_idx = np.where(scaled_init_dists < dist_thresh)[0]
         n_init_non_outliers = init_non_outlier_idx.size
-        print('\t\tinitial_states: %d outliers detected (of %d).'
-            % (n_inits - n_init_non_outliers, n_inits))
+        # print('\t\tinitial_states: %d outliers detected (of %d).'
+            # % (n_inits - n_init_non_outliers, n_inits))
 
         fps_non_outlier_idx = np.where(scaled_fps_dists < dist_thresh)[0]
         n_fps_non_outliers = fps_non_outlier_idx.size
-        print('\t\tfixed points: %d outliers detected (of %d).'
-            % (n_fps - n_fps_non_outliers, n_fps))
+        # print('\t\tfixed points: %d outliers detected (of %d).'
+            # % (n_fps - n_fps_non_outliers, n_fps))
 
         return fps_non_outlier_idx
 
