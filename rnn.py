@@ -3,7 +3,7 @@ import torch.nn as nn
 from config import device
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0, device='cpu', positive_input=0):
+    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0, device='cpu', positive_input=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
         self.tau = tau
@@ -13,7 +13,7 @@ class RNNMemoryModel(nn.Module):
         self.device = device
         self.positive_input = positive_input
         
-        if self.positive_input >= 1:
+        if self.positive_input:
             self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*2, device=device))*2)
         else:
             self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)

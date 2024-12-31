@@ -7,17 +7,17 @@ import numpy as np
 from rnn import *
 from config import *
 
-def generate_target(presence, theta, noise_level=0.0, stimuli_present=True, alpha=0):
+def generate_target(presence, theta, noise_level=0.0, stimuli_present=True):
     theta = theta + noise_level * torch.randn_like(theta, device=device)
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     for i in range(max_item_num):
-        u_0[:, 2 * i] = presence[:, i] * ( torch.cos(theta[:, i]) + alpha )
-        u_0[:, 2 * i + 1] = presence[:, i] * ( torch.sin(theta[:, i]) + alpha )
+        u_0[:, 2 * i] = presence[:, i] * torch.cos(theta[:, i])
+        u_0[:, 2 * i + 1] = presence[:, i] * torch.sin(theta[:, i])
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
-def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10, alpha=0):
+def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10, positive_input=True):
     """
     Generate a 3D input tensor of shape (steps, num_trials, 2 * max_item_num) without loops.
 
@@ -42,12 +42,17 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     )
 
     # Compute the 2D positions (cos and sin components) for all items
-    cos_theta = torch.cos(theta_noisy/2)  # (steps, num_trials, max_item_num)
-    sin_theta = torch.sin(theta_noisy/2)  # (steps, num_trials, max_item_num)
+
+    if positive_input:
+        cos_theta = torch.cos(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+        sin_theta = torch.sin(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+    else:
+        cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
+        sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
-    u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) + alpha ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+    u_0 = torch.stack((cos_theta, sin_theta), dim=-1) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
 
 
     # Reshape to match output shape (combine cos and sin into one dimension)

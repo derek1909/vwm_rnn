@@ -39,7 +39,7 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
 
 def train(model, model_dir, history=None):
     optimizer = optim.Adam(model.parameters(), lr=eta)
-
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=100)
     early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
 
 
@@ -121,6 +121,8 @@ def train(model, model_dir, history=None):
 
             total_loss.backward()
             optimizer.step()
+            scheduler.step(total_loss)
+            earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
             if model.positive_input:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
@@ -149,7 +151,6 @@ def train(model, model_dir, history=None):
                 start_index = end_index
 
             if epoch % logging_period == 0:
-                earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
                 # Calculate averages for buffers and store in history
                 history["error_per_epoch"].append(sum(error_buffer) / len(error_buffer))
@@ -176,7 +177,8 @@ def train(model, model_dir, history=None):
                 pbar_epoch.set_postfix({
                     "Error": f"{history['error_per_epoch'][-1]:.4f}",
                     "Activ": f"{history['activation_per_epoch'][-1]:.4f}",
-                    "Cntr": f"{earlystop_counter}/{early_stop_patience}"
+                    "lr": f"{scheduler.get_last_lr()}",
+                    "StopCntr": f"{earlystop_counter}/{early_stop_patience}",
                 })
                 pbar_epoch.update(logging_period)
 
@@ -184,7 +186,7 @@ def train(model, model_dir, history=None):
             if epoch % (logging_period*10) == 0:
                 save_model_and_history(model, history, model_dir)
 
-            if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0):
+            if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0) and (total_loss>0.1):
                 cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
                 cloned_model.load_state_dict(model.state_dict())  # Copy weights
                 fixed_points_finder(cloned_model, epoch=epoch)

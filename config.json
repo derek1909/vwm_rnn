@@ -8,7 +8,7 @@
         "encode_noise": 0.01,
         "process_noise": 0.5,
         "decode_noise": 0.0,
-        "positive_input": 0,
+        "positive_input":false,
         "T_init": 20,
         "T_stimi": 400,
         "T_delay": 0,
@@ -16,31 +16,32 @@
     },
     "training_params": {
         "train_rnn": true,
-        "train_from_scratch": false,
-        "num_epochs": 2e4,
-        "eta": 1e-5,
+        "train_from_scratch": true,
+        "num_epochs": 1e4,
+        "eta": 1e-4,
         "lambda_reg": 5e-4,
         "lambda_err": 1.0,
         "num_trials": 64,
         "logging_period": 10,
-        "early_stop_patience": 100
+        "early_stop_patience": 200
     },
     "model_and_logging_params": {
-        "rnn_name": "256neuron_1item_PIhalf",
-        "cuda_device": 0
+        "rnn_name": "NotPI",
+        "cuda_device": 1
     },
     "fpf_params": {
         "fpf_bool": true,
+        "fpf_period":50,
         "fpf_pca_bool": true,
         "fpf_names": ["stimuli", "decode"],
         "fpf_N_init": 512,
         "fpf_noise_scale": 0.0,
         "fpf_hps": {
-            "max_iters": 5000,
+            "max_iters": 3000,
             "lr_init": 1.0,
             "outlier_distance_scale": 10.0,
-            "verbose": true,
-            "super_verbose": true
+            "verbose": false,
+            "super_verbose": false
         }
     }
 }
