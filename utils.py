@@ -248,7 +248,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
     axes[-1].set_xlabel("Epochs")
 
     file_path = os.path.join(model_dir, f'training_history_{rnn_name}.png')
-    plt.savefig(file_path, dpi=300, bbox_inches="tight")
+    plt.savefig(file_path, dpi=300)
 
 def save_model_and_history(model, history, model_dir, model_name="model.pth", history_name="training_history.json"):
     """Saves the model state and training history to the specified directory."""

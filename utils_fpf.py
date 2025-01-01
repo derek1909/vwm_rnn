@@ -186,8 +186,6 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, pca_dir, epoch):
     # thetas: (trials,1) -> (trials,)
     thetas = thetas.detach().numpy().squeeze()
 
-    [n_batch, n_states] = hidden_state_end.shape
-
     pca = PCA(n_components=2)
     pca.fit(hidden_state_end)
     pca_points = pca.transform(hidden_state_end)  # (trials, 2*max_items)
@@ -219,7 +217,7 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, pca_dir, epoch):
     if not os.path.exists(pca_dir):
         os.makedirs(pca_dir)
     file_path = f'{pca_dir}/pca_vs_F_epoch_{epoch}.png'
-    plt.savefig(file_path, dpi=300, bbox_inches='tight')
+    plt.savefig(file_path, dpi=300)
     plt.close()
 
 def plot_fixed_point(ax, fp, pca,
