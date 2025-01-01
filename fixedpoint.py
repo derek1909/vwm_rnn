@@ -5,7 +5,7 @@ import ipdb
 from FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
 from utils_fpf import *
 
-def analyze_fixed_points(model, input_states, hidden_states, fpf_dir, fpf_name):
+def analyze_fixed_points(model, input_states, hidden_states, fpf_dir, fpf_name, epoch):
     """
     Analyze and visualize fixed points of the trained RNN.
 
@@ -64,7 +64,8 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_dir, fpf_name):
         plot_batch_idx=trials_to_plot,
         plot_start_time=T_init,
         fpf_name=fpf_name,
-        fpf_dir=f'{fpf_dir}/{fpf_name}',
+        fpf_dir=fpf_dir,
+        epoch=epoch
         )
 
     return unique_fps
@@ -82,14 +83,14 @@ def fixed_points_finder(model, epoch=None):
     # hidden_states: (trials, steps, neuron)
     u_t, hidden_states, thetas = prepare_state(model) # all on cpu
 
-    if epoch is not None:
-        fpf_dir=f'{model_dir}/fpf/epoch{epoch}'
-    else:
-        fpf_dir=f'{model_dir}/fpf/final'
+    if epoch is None:
+        epoch='final'
 
     for fpf_name in fpf_names:
         # print(f"Running Fixed Point Analysis for {fpf_name}")
-        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_dir, fpf_name)
+        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states,
+                                          fpf_dir=f'{model_dir}/fpf',
+                                          fpf_name=fpf_name, epoch=epoch)
         # print(f"Fixed points found: {len(unique_fps)}")
 
     if fpf_pca_bool:
@@ -97,5 +98,6 @@ def fixed_points_finder(model, epoch=None):
             model.F.detach().cpu(),
             hidden_states[:,-1,:],
             thetas,
-            fpf_dir = fpf_dir,
+            pca_dir = f'{model_dir}/fpf/pca',
+            epoch=epoch,
         )

@@ -31,7 +31,8 @@ def plot_fps(fps,
     mode_scale=0.25,
     fig=None,
     fpf_name='',
-    fpf_dir=None,):
+    fpf_dir=None,
+    epoch=None):
 
     '''Plots a visualization and analysis of the unique fixed points.
 
@@ -134,6 +135,12 @@ def plot_fps(fps,
         if n_states == 2:
             ax.ylabel('Hidden 2', fontweight=FONT_WEIGHT)
 
+    # ax.text(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+    if n_states >= 3:
+        ax.text2D(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+    else:
+        ax.text(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+
     ## Plot blue trajectory from state_traj and plot_batch_idx ##
     if state_traj is not None:
         if plot_batch_idx is None:
@@ -160,23 +167,22 @@ def plot_fps(fps,
             scale=mode_scale)
 
     ## Save the figure from multiple angles if save_base_path is provided ##
-    if model_dir is not None:
-        if not os.path.exists(fpf_dir):
-            os.makedirs(fpf_dir)
-
+    if fpf_dir is not None:
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
         for angle in angles:
+            if not os.path.exists(f"{fpf_dir}/{fpf_name}/angle_{angle}"):
+                os.makedirs(f"{fpf_dir}/{fpf_name}/angle_{angle}")
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
-            fig.savefig(f"{fpf_dir}/fpf_angle_{angle}_{fpf_name}.png", format='png', dpi=300)
+            fig.savefig(f"{fpf_dir}/{fpf_name}/angle_{angle}/epoch_{epoch}.png", format='png', dpi=300)
             plt.close()
 
-        with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
-            pickle.dump(fig, file)  
+        # with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
+        #     pickle.dump(fig, file)  
 
 
     return fig
 
-def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, fpf_dir):
+def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, pca_dir, epoch):
     # thetas: (trials,1) -> (trials,)
     thetas = thetas.detach().numpy().squeeze()
 
@@ -184,7 +190,7 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, fpf_dir):
 
     pca = PCA(n_components=2)
     pca.fit(hidden_state_end)
-    pca_points = pca.transform(hidden_state_end) # (trials, 2*max_items)
+    pca_points = pca.transform(hidden_state_end)  # (trials, 2*max_items)
 
     decode_points = hidden_state_end @ F.T
 
@@ -204,15 +210,16 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, fpf_dir):
     plt.axis('equal')
     plt.xlabel('Component 1')
     plt.ylabel('Component 2')
-    plt.title('PCA vs Decoded Points (2D)')
+    plt.title(f'PCA vs Decoded Points (2D) - Epoch {epoch}')
     plt.legend()
     plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
     plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
     plt.grid(True, linestyle='--', alpha=0.6)
 
-    if not os.path.exists(fpf_dir):
-        os.makedirs(fpf_dir)
-    plt.savefig(f'{fpf_dir}/pca_vs_F.png', dpi=300, bbox_inches='tight')
+    if not os.path.exists(pca_dir):
+        os.makedirs(pca_dir)
+    file_path = f'{pca_dir}/pca_vs_F_epoch_{epoch}.png'
+    plt.savefig(file_path, dpi=300, bbox_inches='tight')
     plt.close()
 
 def plot_fixed_point(ax, fp, pca,
