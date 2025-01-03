@@ -411,7 +411,7 @@ def prepare_state(model):
         T_delay=T_delay,
         T_decode=T_decode,
         dt=dt,
-        positive_input=positive_input,
+        alpha=positive_input,
     )
     
     r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)

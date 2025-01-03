@@ -105,7 +105,7 @@ def train(model, model_dir, history=None):
                 T_delay=T_delay,
                 T_decode=T_decode,
                 dt=dt,
-                positive_input=positive_input
+                alpha=positive_input
             )
             
             r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
@@ -113,7 +113,7 @@ def train(model, model_dir, history=None):
             step_threshold = int((T_init + T_stimi + T_delay) / dt)
             r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
 
-            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
+            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True, alpha=0)  # u_0 has no noise
 
             # Calculate total loss and group-wise errors
             total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(
@@ -126,7 +126,7 @@ def train(model, model_dir, history=None):
             scheduler.step(total_loss)
             earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
-            if model.positive_input:
+            if model.positive_input >= 1:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
 
             # Append errors and activs to the history buffers
