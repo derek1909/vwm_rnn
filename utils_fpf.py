@@ -30,8 +30,7 @@ def plot_fps(fps,
     plot_stop_time=None,
     mode_scale=0.25,
     fig=None,
-    fpf_name='',
-    fpf_dir=None,
+    save_path=None,
     epoch=None):
 
     '''Plots a visualization and analysis of the unique fixed points.
@@ -167,15 +166,15 @@ def plot_fps(fps,
             scale=mode_scale)
 
     ## Save the figure from multiple angles if save_base_path is provided ##
-    if fpf_dir is not None:
+    if save_path is not None:
+        if not os.path.exists(save_path):
+            os.makedirs(save_path)
+
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
-        if not os.path.exists(f"{fpf_dir}/{fpf_name}"):
-            os.makedirs(f"{fpf_dir}/{fpf_name}")
         for angle in angles:
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
-            fig.savefig(f"{fpf_dir}/{fpf_name}/angle_{angle}_epoch_{epoch}.png", format='png', dpi=300)
+            fig.savefig(f"{save_path}/fpf_angle_{angle}_epoch_{epoch}.png", format='png', dpi=300)
             plt.close()
-
         # with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
         #     pickle.dump(fig, file)  
 

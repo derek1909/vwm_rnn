@@ -48,8 +48,7 @@ model_dir = f"rnns/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
 
 # Fixed Point Finder parameters
-fpf_bool = fpf_params["fpf_bool"] # Overall fpf switch
-fpf_period = fpf_params["fpf_period"] # Whether to do fpf while training. >0 means yes.
+fpf_bool = fpf_params["fpf_bool"]
 fpf_pca_bool = fpf_params["fpf_pca_bool"]
 fpf_names = fpf_params["fpf_names"] # stimuli or decode.
 fpf_N_init = fpf_params["fpf_N_init"] # Number of initial states for optimization
@@ -66,5 +65,3 @@ os.makedirs(model_dir, exist_ok=True)  # Create directory if it doesn't exist
 shutil.copyfile('./config.json', f'{model_dir}/config.json')
 print(f"Configuration saved to {model_dir}/config.json")
 print(f"Using device: {device}")
-if fpf_bool and (fpf_period>0):
-    print('FPF evolution will be plotted.')

@@ -7,7 +7,6 @@ from early_stopping_pytorch.early_stopping import EarlyStopping
 from rnn import *
 from config import *
 from utils import save_model_and_history, generate_target, generate_input
-from fixedpoint import fixed_points_finder
 
 
 def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
@@ -185,14 +184,13 @@ def train(model, model_dir, history=None):
                 })
                 pbar_epoch.update(logging_period)
 
-            # Save model and history every logging_period*10 epochs
-            if epoch % (logging_period*10) == 0:
+                # Save model and history every logging_period epochs
                 save_model_and_history(model, history, model_dir)
 
-            if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0) and (total_loss>0.03):
-                cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
-                cloned_model.load_state_dict(model.state_dict())  # Copy weights
-                fixed_points_finder(cloned_model, epoch=epoch)
+            # if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0) and (total_loss>0.03):
+            #     cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
+            #     cloned_model.load_state_dict(model.state_dict())  # Copy weights
+            #     fixed_points_finder(cloned_model, epoch=epoch)
 
             if early_stopping.early_stop:
                 print("Early stopping")
