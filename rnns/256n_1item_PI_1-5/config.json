@@ -1,0 +1,47 @@
+{
+    "model_params": {
+        "max_item_num": 1,
+        "item_num": [1],
+        "num_neurons": 256,
+        "tau": 50,
+        "dt": 10,
+        "encode_noise": 0.01,
+        "process_noise": 0.5,
+        "decode_noise": 0.0,
+        "positive_input":1.5,
+        "T_init": 20,
+        "T_stimi": 400,
+        "T_delay": 0,
+        "T_decode": 800
+    },
+    "training_params": {
+        "train_rnn": true,
+        "train_from_scratch": true,
+        "num_epochs": 1e4,
+        "eta": 1e-4,
+        "lambda_reg": 5e-4,
+        "lambda_err": 1.0,
+        "num_trials": 64,
+        "logging_period": 10,
+        "early_stop_patience": 150
+    },
+    "model_and_logging_params": {
+        "rnn_name": "PI_1-5",
+        "cuda_device": 0
+    },
+    "fpf_params": {
+        "fpf_bool": true,
+        "fpf_period":0,
+        "fpf_pca_bool": true,
+        "fpf_names": ["stimuli", "decode"],
+        "fpf_N_init": 200,
+        "fpf_noise_scale": 0.0,
+        "fpf_hps": {
+            "max_iters": 500,
+            "lr_init": 1.0,
+            "outlier_distance_scale": 10.0,
+            "verbose": false,
+            "super_verbose": false
+        }
+    }
+}
