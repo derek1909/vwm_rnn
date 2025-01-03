@@ -185,7 +185,10 @@ def train(model, model_dir, history=None):
                 pbar_epoch.update(logging_period)
 
                 # Save model and history every logging_period epochs
-                save_model_and_history(model, history, model_dir)
+                os.makedirs(f'{model_dir}/models', exist_ok=True)
+                save_model_and_history(model, history, 
+                                    model_dir,
+                                    model_name=f'model_epoch{epoch}.pth')
 
             # if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0) and (total_loss>0.03):
             #     cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)

@@ -250,22 +250,17 @@ def save_model_and_history(model, history, model_dir, model_name="model.pth", hi
     os.makedirs(model_dir, exist_ok=True)
 
     # Save model
-    model_path = os.path.join(model_dir, model_name)
+    model_path = f'{model_dir}/models/{model_name}'
     torch.save(model.state_dict(), model_path)
 
     # Save training history
-    history_path = os.path.join(model_dir, history_name)
+    history_path = f'{model_dir}/{history_name}'
     with open(history_path, 'w') as f:
         json.dump(history, f)
 
 def load_model_and_history(model, model_dir, model_name="model.pth", history_name="training_history.json"):
     """Loads the model state and training history from the specified directory."""
-    model_path = os.path.join(model_dir, model_name)
-    history_path = os.path.join(model_dir, history_name)
-
-    # Load model
-    if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
+    history_path = f'{model_dir}/{history_name}'
 
     # Load history
     if os.path.exists(history_path):
@@ -273,5 +268,12 @@ def load_model_and_history(model, model_dir, model_name="model.pth", history_nam
             history = json.load(f)
     else:
         history = None
+
+    # Load model
+    epoch = history['epochs'][-1]
+    model_name = f'model_epoch{epoch}.pth'
+    model_path = f'{model_dir}/models/{model_name}'
+    if os.path.exists(model_path):
+        model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
 
     return model, history
