@@ -38,11 +38,6 @@ def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0
     return total_loss, activation_penalty, mean_error, variance_error
 
 def train(model, model_dir, history=None):
-    optimizer = optim.Adam(model.parameters(), lr=eta)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=100)
-    early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
-
-
     # If no history is provided, initialize empty history
     if history is None:
         history = {
@@ -52,12 +47,19 @@ def train(model, model_dir, history=None):
             "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
-            "epochs": []
+            "epochs": [],
+            "lr": eta,
         }
         start_epoch = 0
+        start_lr = eta
     else:
         start_epoch = history['epochs'][-1]
+        start_lr = history["lr"][0]
         
+    optimizer = optim.Adam(model.parameters(), lr=start_lr)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=int(early_stop_patience/2))
+    early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
+
     # Initialize buffers to store recent history
     error_buffer = []
     error_std_buffer = []
@@ -157,6 +159,7 @@ def train(model, model_dir, history=None):
                 history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
                 history["activation_per_epoch"].append(sum(activation_buffer) / len(activation_buffer))
                 history["epochs"].append(epoch)
+                history["lr"] = scheduler.get_last_lr()
 
                 for i in range(len(group_error_buffers)):
                     history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))

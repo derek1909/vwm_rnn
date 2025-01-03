@@ -169,11 +169,11 @@ def plot_fps(fps,
     ## Save the figure from multiple angles if save_base_path is provided ##
     if fpf_dir is not None:
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
+        if not os.path.exists(f"{fpf_dir}/{fpf_name}"):
+            os.makedirs(f"{fpf_dir}/{fpf_name}")
         for angle in angles:
-            if not os.path.exists(f"{fpf_dir}/{fpf_name}/angle_{angle}"):
-                os.makedirs(f"{fpf_dir}/{fpf_name}/angle_{angle}")
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
-            fig.savefig(f"{fpf_dir}/{fpf_name}/angle_{angle}/epoch_{epoch}.png", format='png', dpi=300)
+            fig.savefig(f"{fpf_dir}/{fpf_name}/angle_{angle}_epoch_{epoch}.png", format='png', dpi=300)
             plt.close()
 
         # with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
@@ -194,12 +194,21 @@ def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, pca_dir, epoch):
 
     # 2D scatter plot
     plt.figure(figsize=(5, 5))
+    # scatter1 = plt.scatter(
+    #     pca_points[:, 0], pca_points[:, 1], c=thetas, cmap='rainbow',
+    #     label='PCA Points', marker='^', s=60, edgecolor='black', linewidth=0.5
+    # )
+    # scatter2 = plt.scatter(
+    #     decode_points[:, 0], decode_points[:, 1], c=thetas, cmap='rainbow',
+    #     label='Decoded Points', marker='o', s=40, edgecolor='black', linewidth=0.5
+    # )
+    
     scatter1 = plt.scatter(
-        pca_points[:, 0], pca_points[:, 1], c=thetas, cmap='rainbow',
+        pca_points[:, 0], pca_points[:, 1], color='red',
         label='PCA Points', marker='^', s=60, edgecolor='black', linewidth=0.5
     )
     scatter2 = plt.scatter(
-        decode_points[:, 0], decode_points[:, 1], c=thetas, cmap='rainbow',
+        decode_points[:, 0], decode_points[:, 1], color='blue',
         label='Decoded Points', marker='o', s=40, edgecolor='black', linewidth=0.5
     )
     cbar = plt.colorbar(scatter1)
@@ -383,7 +392,15 @@ def prepare_state(model):
         start_index = end_index
 
     # input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi)
-    input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
+    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
+
+    # for 2 items
+    num_per_dim = int(num_trials**0.5)  # Number of trials per dimension
+    theta1 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
+    theta2 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
+    theta1_grid, theta2_grid = torch.meshgrid(theta1, theta2, indexing='ij')
+    input_thetas = torch.stack([theta1_grid.flatten(), theta2_grid.flatten()], dim=1)
+
 
     u_t = generate_input(
         presence=input_presence,
