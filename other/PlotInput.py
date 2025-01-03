@@ -34,12 +34,12 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     )
 
     # # Compute the 2D positions (cos and sin components) for all items
-    # cos_theta = torch.cos(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
-    # sin_theta = torch.sin(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+    cos_theta = torch.cos(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+    sin_theta = torch.sin(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
 
     # Compute the 2D positions (cos and sin components) for all items
-    cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
-    sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
+    # cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
+    # sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
@@ -63,7 +63,7 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     return u_t_stack
 
 
-num_trials = 64
+num_trials = 128
 input_presence = torch.ones(num_trials,1)
 input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials).unsqueeze(1) # for 1item
 
@@ -88,17 +88,21 @@ x = u_t[:, 0]
 y = u_t[:, 1]
 
 # Plot
-plt.figure(figsize=(5, 5))  # Set plot size to 5x5 inches
-scatter = plt.scatter(x, y, c=theta, cmap='viridis', edgecolor='k')
+plt.figure(figsize=(4, 4))  # Set plot size to 5x5 inches
+scatter = plt.scatter(x, y, c=theta, cmap='rainbow')
 plt.colorbar(scatter, label="Theta Values")  # Add colorbar to indicate theta values
 
-# Customize plot
-plt.axis('equal')  # Ensure equal scaling for x and y axes
-# plt.xlim(-2, 2)  # Set x-axis range
-# plt.ylim(-2, 2)  # Set y-axis range
 plt.xlabel("u_t (Dimension 1)")
 plt.ylabel("u_t (Dimension 2)")
-plt.grid(True)
+
+plt.axis('equal')
+# plt.title(f'PCA vs Decoded Points (2D) - Epoch {epoch}')
+# plt.legend()
+plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
+plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
+plt.grid(True, linestyle='--', alpha=0.6)
+
+
 
 # Highlight x and y axes
 plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
@@ -106,5 +110,5 @@ plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
 
 
 # Save the plot
-plt.savefig('./input_NotPI.png', dpi=300, bbox_inches='tight')
+plt.savefig('./other/input_PI_theta4.png', dpi=300, bbox_inches='tight')
 plt.close()
