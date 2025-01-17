@@ -7,8 +7,7 @@ import numpy as np
 from rnn import *
 from config import *
 
-def generate_target(presence, theta, noise_level=0.0, stimuli_present=True, alpha=0):
-    theta = theta + noise_level * torch.randn_like(theta, device=device)
+def generate_target(presence, theta, stimuli_present=True, alpha=0):
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     for i in range(max_item_num):
@@ -40,6 +39,7 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(
         (steps, num_trials, max_item_num), device=device
     )
+    theta_noisy = (theta_noisy + torch.pi) % (2 * torch.pi) - torch.pi
 
     # Compute the 2D positions (cos and sin components) for all items
     cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
