@@ -95,6 +95,6 @@ def fixed_points_finder(model, epoch=None):
             model.F.detach().cpu(),
             hidden_states[:,-1,:],
             thetas,
-            pca_dir = f'{model_dir}/fpf/pca',
+            pca_dir = f'{model_dir}/pca',
             epoch=epoch,
         )

@@ -56,7 +56,7 @@ def train(model, model_dir, history=None):
         start_lr = history["lr"][0]
         
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=int(early_stop_patience/2))
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=adaptive_lr_patience)
     early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
 
     # Initialize buffers to store recent history
@@ -180,7 +180,7 @@ def train(model, model_dir, history=None):
                     "Error": f"{history['error_per_epoch'][-1]:.4f}",
                     "Activ": f"{history['activation_per_epoch'][-1]:.4f}",
                     "lr": f"{scheduler.get_last_lr()}",
-                    "StopCntr": f"{earlystop_counter}/{early_stop_patience}",
+                    "PatienceCnt": earlystop_counter,
                 })
                 pbar_epoch.update(logging_period)
 

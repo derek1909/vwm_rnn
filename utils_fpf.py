@@ -390,15 +390,15 @@ def prepare_state(model):
         input_presence = input_presence_temp
         start_index = end_index
 
-    # input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi)
+    input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi) # for multi items
     # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
 
     # for 2 items
-    num_per_dim = int(num_trials**0.5)  # Number of trials per dimension
-    theta1 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
-    theta2 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
-    theta1_grid, theta2_grid = torch.meshgrid(theta1, theta2, indexing='ij')
-    input_thetas = torch.stack([theta1_grid.flatten(), theta2_grid.flatten()], dim=1)
+    # num_per_dim = int(num_trials**0.5)  # Number of trials per dimension
+    # theta1 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
+    # theta2 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
+    # theta1_grid, theta2_grid = torch.meshgrid(theta1, theta2, indexing='ij')
+    # input_thetas = torch.stack([theta1_grid.flatten(), theta2_grid.flatten()], dim=1)
 
 
     u_t = generate_input(

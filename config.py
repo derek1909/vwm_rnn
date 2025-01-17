@@ -40,6 +40,7 @@ lambda_err = training_params["lambda_err"]  # coeff for error penalty
 num_trials = training_params["num_trials"]  # Number of trials per epoch
 logging_period = training_params["logging_period"]  # record progress every 10 epoch
 early_stop_patience = training_params["early_stop_patience"]
+adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
