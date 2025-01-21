@@ -32,7 +32,7 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
-train_from_scratch = training_params["train_from_scratch"]
+from_scratch = training_params["from_scratch"]
 num_epochs = int(training_params["num_epochs"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
@@ -44,7 +44,7 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
-rnn_name = f'{num_neurons}n_{max_item_num}item_{rnn_name}'
+rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}'
 model_dir = f"rnns/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
 

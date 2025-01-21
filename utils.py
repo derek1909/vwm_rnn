@@ -282,3 +282,55 @@ def load_model_and_history(model, model_dir, model_name="model.pth", history_nam
         model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
 
     return model, history
+
+
+def plot_weights(model):
+    """
+    Plots the weight matrices B (input to neurons), W (recurrent), and F (neurons to output) side by side.
+
+    Args:
+        model (torch.nn.Module): RNN model containing weight matrices B, W, and F.
+    """
+    os.makedirs(model_dir, exist_ok=True)
+
+    # Convert tensors to NumPy
+    B_np = model.B.detach().cpu().numpy()
+    W_np = model.W.detach().cpu().numpy()
+    F_np = model.F.detach().cpu().numpy()
+
+    # fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+    fig, axes = plt.subplots(1, 3, figsize=(15, 6), gridspec_kw={'width_ratios': [1, 2.5, 1]})
+
+    # Plot B (Input to Neurons)
+    im0 = axes[0].imshow(B_np, cmap="seismic", vmin=-np.max(np.abs(B_np)), vmax=np.max(np.abs(B_np)))
+    fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=-0.04)
+    axes[0].set_title("Input-to-Neurons (B)", fontsize=14)
+    axes[0].set_xlabel(f"Inputs ({B_np.shape[1]})", fontsize=12)
+    axes[0].set_ylabel(f"Neurons ({B_np.shape[0]})", fontsize=12)
+
+    # Plot W (Recurrent Weights)
+    im1 = axes[1].imshow(W_np, cmap="seismic", vmin=-np.max(np.abs(W_np)), vmax=np.max(np.abs(W_np)))
+    fig.colorbar(im1, ax=axes[1], fraction=0.023, pad=0.04)
+    axes[1].set_title("Recurrent Weights (W)", fontsize=14)
+    axes[1].set_xlabel(f"Neurons ({W_np.shape[1]})", fontsize=12)
+    axes[1].set_ylabel(f"Neurons ({W_np.shape[0]})", fontsize=12)
+
+    # Plot F (Neurons to Output)
+    im2 = axes[2].imshow(F_np.T, cmap="seismic", vmin=-np.max(np.abs(F_np)), vmax=np.max(np.abs(F_np)))
+    fig.colorbar(im2, ax=axes[2], fraction=0.046, pad=-0.04)
+    axes[2].set_title("Neurons-to-Output (F.T)", fontsize=14)
+    axes[2].set_xlabel(f"Outputs ({F_np.shape[0]})", fontsize=12)
+    axes[2].set_ylabel(f"Neurons ({F_np.shape[1]})", fontsize=12)
+
+    # Remove ticks
+    for ax in axes:
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_anchor("C")
+
+    # Save figure
+    save_path = os.path.join(model_dir, f"weights_{rnn_name}.png")
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    print(f"All weight matrices plot saved at: {save_path}")

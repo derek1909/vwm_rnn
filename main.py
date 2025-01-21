@@ -13,7 +13,7 @@ if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
 
     # Load model and history if training from a previous checkpoint
-    if not train_from_scratch:
+    if not from_scratch:
         model, history = load_model_and_history(model, model_dir)
     else:
         history = None  # Start fresh
@@ -21,6 +21,7 @@ if __name__ == "__main__":
     # Train the model
     if train_rnn:
         history = train(model, model_dir, history)
+    plot_weights(model)
 
     # Plot training curves
     if history:
