@@ -3,7 +3,8 @@ import numpy as np
 import torch
 import sys
 import os
-
+from math import sqrt
+# from mpl_toolkits.mplot3d import Axes3D
 # parent_folder = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 # sys.path.append(parent_folder)
 # from utils import generate_input
@@ -32,18 +33,24 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(
         (steps, num_trials, max_item_num), device=device
     )
+    theta_noisy = (theta_noisy + torch.pi) % (2 * torch.pi) - torch.pi
 
     # # Compute the 2D positions (cos and sin components) for all items
-    cos_theta = torch.cos(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
-    sin_theta = torch.sin(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+    # cos_theta = torch.cos(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
+    # sin_theta = torch.sin(theta_noisy/4+torch.pi/4)  # (steps, num_trials, max_item_num)
 
     # Compute the 2D positions (cos and sin components) for all items
-    # cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
-    # sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
+    cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
+    sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
-    u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) + alpha ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+    # u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) + alpha ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+    u_0 = ( torch.stack((
+                1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
+                1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
+                1 - 2 * sin_theta / sqrt(6),
+            ), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 3)
 
 
     # Reshape to match output shape (combine cos and sin into one dimension)
@@ -86,29 +93,48 @@ theta = input_thetas.squeeze()  # Shape becomes (64,)
 # Extract x and y coordinates
 x = u_t[:, 0]
 y = u_t[:, 1]
+z = u_t[:, 2]
 
-# Plot
-plt.figure(figsize=(4, 4))  # Set plot size to 5x5 inches
-scatter = plt.scatter(x, y, c=theta, cmap='rainbow')
+
+
+fig = plt.figure(figsize=(6,3))
+ax = fig.add_subplot(111, projection='3d')
+
+scatter = ax.scatter(x, y, z, c=theta, cmap='rainbow', label="Circle")
+ax.scatter(1, 1, 1, color='r', marker='x', label="Center (1,1,1)")
 plt.colorbar(scatter, label="Theta Values")  # Add colorbar to indicate theta values
 
-plt.xlabel("u_t (Dimension 1)")
-plt.ylabel("u_t (Dimension 2)")
+# Highlight 3D Axes
+ax.plot([0, 2], [0, 0], [0, 0], color='black', linewidth=1, linestyle='-')  # X-axis
+ax.plot([0, 0], [0, 2], [0, 0], color='black', linewidth=1, linestyle='-')  # Y-axis
+ax.plot([0, 0], [0, 0], [0, 2], color='black', linewidth=1, linestyle='-')  # Z-axis
 
-plt.axis('equal')
-# plt.title(f'PCA vs Decoded Points (2D) - Epoch {epoch}')
-# plt.legend()
-plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
-plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
-plt.grid(True, linestyle='--', alpha=0.6)
-
-
-
-# Highlight x and y axes
-plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
-plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
+# Set labels
+# ax.set_xlabel("X-axis")
+# ax.set_ylabel("Y-axis")
+# ax.set_zlabel("Z-axis")
 
 
-# Save the plot
-plt.savefig('./other/input_PI_theta4.png', dpi=300, bbox_inches='tight')
-plt.close()
+ax.set_xlim(0,2)
+ax.set_ylim(0,2)
+ax.set_zlim(0,2)
+
+ax.set_xticks([])
+ax.set_yticks([])
+ax.set_zticks([])
+ax.view_init(elev=15, azim=-80)  # Elevation and azimuth angle
+
+# ax.set_axis_off()  # Removes all axis elements (frame, ticks, labels)
+ax.grid(False)  # Removes grid
+
+ax.xaxis.line.set_color((1,1,1,0))  # Hide X-axis line
+ax.yaxis.line.set_color((1,1,1,0))  # Hide Y-axis line
+ax.zaxis.line.set_color((1,1,1,0))  # Hide Z-axis line
+
+# plt.show()
+plt.savefig('./other/input_PI_3d.png', dpi=300, bbox_inches='tight')
+
+# plt.show()
+
+# # Save the plot
+# plt.close()
