@@ -124,7 +124,7 @@ def train(model, model_dir, history=None):
             scheduler.step(total_loss)
             earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
-            if model.positive_input >= 1:
+            if model.positive_input:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
 
             # Append errors and activs to the history buffers

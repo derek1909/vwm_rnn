@@ -48,13 +48,14 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
-    # u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
-    u_0 = ( torch.stack((
-                1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
-                1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
-                1 - 2 * sin_theta / sqrt(6),
-            ), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 3)
-
+    if positive_input:
+        u_0 = ( torch.stack((
+                    1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
+                    1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
+                    1 - 2 * sin_theta / sqrt(6),
+                ), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 3)
+    else:
+        u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
 
     # Reshape to match output shape (combine cos and sin into one dimension)
     u_0 = u_0.view(steps, num_trials, -1)  # (steps, num_trials, 2 * max_item_num)

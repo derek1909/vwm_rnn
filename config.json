@@ -8,7 +8,7 @@
         "ILC_noise": 0.01,
         "process_noise": 0.5,
         "decode_noise": 0.0,
-        "positive_input": 5,
+        "positive_input": true,
         "T_init": 20,
         "T_stimi": 400,
         "T_delay": 0,
