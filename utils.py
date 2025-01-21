@@ -197,7 +197,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
             label="Error ± std"
         )
 
-        axes[i].set_ylabel("Error",color=err_color)
+        axes[i].set_ylabel("Absolute Error (rad)",color=err_color)
         axes[i].set_title(f"{item_num[i]} item. Loss and Activation vs Epoch")
         axes[i].tick_params(axis='y', labelcolor=err_color)
         axes[i].grid(True)
@@ -215,7 +215,6 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         ax2.tick_params(axis='y', labelcolor=activ_color)
 
         # Add the end value annotation for activation
-        ax2.axhline(y=activ[-1], color=activ_color, linestyle='--', alpha=0.7)
         ax2.annotate(
             f"{activ[-1]:.3f} Hz",  # Format the annotation to 3 decimal places
             xy=(epochs[-1], activ[-1]),  # Position it at the last epoch's error value
@@ -224,9 +223,8 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
         )
         # Add the end value annotation
-        axes[i].axhline(y=errors[-1], color=err_color, linestyle='--', alpha=0.7)
         axes[i].annotate(
-            f"{errors[-1]:.3f}",  # Format the annotation to 3 decimal places
+            f"{errors[-1]:.3f} rad",  # Format the annotation to 3 decimal places
             xy=(epochs[-1], errors[-1]),  # Position it at the last epoch's error value
             xytext=(-20, -15), textcoords="offset points",  # Offset slightly for clarity
             color=err_color, fontsize=10, fontweight="bold",

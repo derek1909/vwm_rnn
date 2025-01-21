@@ -9,32 +9,100 @@ from config import *
 from utils import save_model_and_history, generate_target, generate_input
 
 
-def memory_loss_integral(F, r_stack, u_0, presence, lambda_err=1.0, lambda_reg=0.1):
+def calc_train_error(u_hat_stack, u_0, presence):
     """
-    Calculates the total loss, activation penalty, and variance of group error.
-    * r_stack = (steps, trials, neurons)
-    * u_0 = (trials, max_items*2)
-    * presence = (trials, max_items)
+    Calculate training error, variance of the error, and penalization.
+
+    Args:
+        u_hat_stack (torch.Tensor): (steps, trials, max_items*2) Decoded outputs over time.
+        u_0 (torch.Tensor): (trials, max_items*2) Ground truth target.
+        presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
+
+    Returns:
+        mean_error (torch.Tensor): scalar. Mean error across trials.
+        var_error (torch.Tensor): scalar. Variance of errors across trials.
     """
+    # Compute squared error for each trial
+    expanded_presence = presence.repeat_interleave(2, dim=1)
+    error_per_trial = ((u_0 - u_hat_stack.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
+
+    # Compute mean and variance of error across trials
+    mean_error = error_per_trial.mean()
+    var_error = error_per_trial.var()
+
+    return mean_error, var_error
+
+def calc_eval_error(u_hat, target_thetas, presence):
+    """
+    Calculate evaluation-specific angular error.
+
+    Args:
+        u_hat (torch.Tensor): (steps, trials, max_items*2) Decoded outputs over time.
+        target_thetas (torch.Tensor): (trials, max_items) Ground truth angles.
+        presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
+
+    Returns:
+        mean_ang_error (torch.Tensor): scalar. Mean angular error across trials.
+        var_ang_error (torch.Tensor): scalar. Variance of angular errors across trials.
+    """
+    # Reshape u_hat into (steps, trials, max_items, 2)
+    u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
+
+    # Compute angles from decoded (cos, sin) pairs
+    cos_thetas = u_hat_reshaped[..., 0]  # (steps, trials, max_items)
+    sin_thetas = u_hat_reshaped[..., 1]  # (steps, trials, max_items)
+    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (steps, trials, max_items)
+
+    # Compute angular difference
+    # (steps,trials,items) -> (trials,)
+    angular_diff = (target_thetas - decoded_thetas.mean(dim=0) + torch.pi) % (2 * torch.pi) - torch.pi  # (-pi,pi)
+    angular_error_per_trial = (angular_diff.abs() * presence).sum(dim=1) / presence.sum(dim=1)
+
+    # Compute mean and variance of angular errors
+    mean_ang_error = angular_error_per_trial.mean()
+    var_ang_error = angular_error_per_trial.var()
+
+    return mean_ang_error, var_ang_error
+
+def error_calc(F, r_stack, target_thetas, presence, train_err=True):
+    """
+    Calculates training error, evaluation error, and activation penalty.
+
+    Args:
+        F (torch.Tensor): Decoding matrix of shape (neurons, output_dim).
+        r_stack (torch.Tensor): Neural activity tensor of shape (steps, trials, neurons).
+        target_thetas (torch.Tensor): Ground truth angles of shape (trials, max_items).
+        presence (torch.Tensor): Binary mask of shape (trials, max_items) indicating item presence.
+        train_err (bool, optional): If True, compute training error. Defaults to True.
+
+    Returns:
+        dict: Dictionary containing:
+            - 'mean_train_error' (torch.Tensor): Mean training error.
+            - 'variance_train_error' (torch.Tensor): Variance of training error.
+            - 'mean_eval_error' (torch.Tensor): Mean evaluation error.
+            - 'variance_eval_error' (torch.Tensor): Variance of evaluation error.
+            - 'activation_penalty' (torch.Tensor): Activation penalty term.
+    """
+    # Reshape r_stack for decoding and recover its original shape
     num_steps, num_trials, num_neurons = r_stack.shape
     u_hat_stack = decode(F, r_stack.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
 
-    # Calculate the squared error for each trial
-    # (steps,trials,items) -> (trials,)
-    error_per_trial = (u_0 - u_hat_stack * presence.repeat_interleave(2, dim=1)).pow(2).sum(dim=(0, 2)) / \
-                      torch.sum(presence, dim=1) / num_steps  # Average over time steps and dimensions
+    # Generate target outputs (ground truth for training loss)
+    u_0 = generate_target(presence, target_thetas, stimuli_present=True)
 
-    # Mean error across all trials
-    mean_error = lambda_err * error_per_trial.mean()
+    # Calculate training error if enabled
+    if train_err:
+        mean_train_error, var_train_error = calc_train_error(u_hat_stack, u_0, presence)
+    else:
+        mean_train_error, var_train_error = torch.nan, torch.nan
 
-    # Variance of the error across trials (actually devided by trials-1)
-    variance_error = error_per_trial.var()
+    # Calculate evaluation error (angular)
+    mean_eval_error, var_eval_error = calc_eval_error(u_hat_stack, target_thetas, presence)
 
-    # Activation penalty
-    activation_penalty = lambda_reg * r_stack.abs().mean()
+    # Calculate activation penalty
+    activ_penalty =  r_stack.abs().mean()
 
-    total_loss = mean_error + activation_penalty
-    return total_loss, activation_penalty, mean_error, variance_error
+    return mean_train_error, var_train_error, mean_eval_error, var_eval_error, activ_penalty
 
 def train(model, model_dir, history=None):
     # If no history is provided, initialize empty history
@@ -110,14 +178,10 @@ def train(model, model_dir, history=None):
 
             step_threshold = int((T_init + T_stimi + T_delay) / dt)
             r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
-
-            u_0 = generate_target(input_presence, input_thetas, stimuli_present=True)  # u_0 has no noise
-
-            # Calculate total loss and group-wise errors
-            total_loss, total_activ_penal, total_error, total_error_var = memory_loss_integral(
-                model.F, r_loss, u_0, input_presence,
-                lambda_err=lambda_err, lambda_reg=lambda_reg
-            )
+            
+            # Calculate total loss
+            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model.F, r_loss, input_thetas, input_presence, train_err=True)
+            total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
 
             total_loss.backward()
             optimizer.step()
@@ -128,25 +192,22 @@ def train(model, model_dir, history=None):
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
 
             # Append errors and activs to the history buffers
-            error_buffer.append(total_error.item())
-            error_std_buffer.append(total_error_var.sqrt().item())
-            activation_buffer.append((total_activ_penal / lambda_reg).item())
+            error_buffer.append(mean_eval_error.item())
+            error_std_buffer.append(var_eval_error.sqrt().item())
+            activation_buffer.append((activ_penalty).item())
 
             start_index = 0
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
-                group_r_stack = r_loss[:, start_index:end_index]
-                group_u_0 = u_0[start_index:end_index]
-                group_presence = input_presence[start_index:end_index]
+                _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(model.F, 
+                                    r_loss[:, start_index:end_index], 
+                                    input_thetas[start_index:end_index], 
+                                    input_presence[start_index:end_index], 
+                                    train_err=False)
 
-                _, group_activ_penal, group_error, group_variance = memory_loss_integral(
-                    model.F, group_r_stack, group_u_0, group_presence,
-                    lambda_err=lambda_err, lambda_reg=lambda_reg
-                )
-
-                group_error_buffers[i].append(group_error.item())
-                group_activ_buffers[i].append((group_activ_penal/lambda_reg).item())
-                group_std_buffers[i].append(group_variance.sqrt().item())
+                group_error_buffers[i].append(gp_mean_eval_error.item())
+                group_activ_buffers[i].append(gp_activ_penalty.item())
+                group_std_buffers[i].append(gp_var_eval_error.sqrt().item())
 
                 start_index = end_index
 
@@ -176,8 +237,8 @@ def train(model, model_dir, history=None):
 
                 # Update progress bar
                 pbar_epoch.set_postfix({
-                    "Error": f"{history['error_per_epoch'][-1]:.4f}",
-                    "Activ": f"{history['activation_per_epoch'][-1]:.4f}",
+                    "Error": f"{history['error_per_epoch'][-1]:.4f}rad",
+                    "Activ": f"{history['activation_per_epoch'][-1]:.4f}Hz",
                     "lr": f"{scheduler.get_last_lr()}",
                     "PatienceCnt": earlystop_counter,
                 })
