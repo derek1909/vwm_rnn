@@ -14,7 +14,7 @@ class RNNMemoryModel(nn.Module):
         self.positive_input = positive_input
         
         if self.positive_input >= 1:
-            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*2, device=device))*2)
+            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*3, device=device))*2)
         else:
             self.B = nn.Parameter(torch.randn(num_neurons, max_item_num*2, device=device)*10)
         self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
