@@ -19,7 +19,7 @@ item_num = model_params["item_num"]
 num_neurons = model_params["num_neurons"]
 tau = model_params["tau"]
 dt = model_params["dt"]
-encode_noise = model_params["encode_noise"] # rad
+ILC_noise = model_params["ILC_noise"] # rad
 process_noise = model_params["process_noise"] # Hz
 decode_noise = model_params["decode_noise"]
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
@@ -40,6 +40,7 @@ lambda_err = training_params["lambda_err"]  # coeff for error penalty
 num_trials = training_params["num_trials"]  # Number of trials per epoch
 logging_period = training_params["logging_period"]  # record progress every 10 epoch
 early_stop_patience = training_params["early_stop_patience"]
+adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
