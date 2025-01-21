@@ -3,22 +3,23 @@ import matplotlib.pyplot as plt
 import os
 import json
 import numpy as np
+from math import sqrt
 
 from rnn import *
 from config import *
 
-def generate_target(presence, theta, stimuli_present=True, alpha=0):
+def generate_target(presence, theta, stimuli_present=True):
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     for i in range(max_item_num):
-        u_0[:, 2 * i] = presence[:, i] * ( torch.cos(theta[:, i]) + alpha )
-        u_0[:, 2 * i + 1] = presence[:, i] * ( torch.sin(theta[:, i]) + alpha )
+        u_0[:, 2 * i] = presence[:, i] * ( torch.cos(theta[:, i]) )
+        u_0[:, 2 * i + 1] = presence[:, i] * ( torch.sin(theta[:, i]) )
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
-def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10, alpha=0):
+def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10):
     """
-    Generate a 3D input tensor of shape (steps, num_trials, 2 * max_item_num) without loops.
+    Generate a 3D input tensor of shape (steps, num_trials, 3 * max_item_num) without loops.
 
     Args:
         presence: (num_trials, max_item_num) binary tensor indicating presence of items.
@@ -28,7 +29,7 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
         dt: Time step size (in ms).
 
     Returns:
-        u_t_stack: (num_trials, steps, 2 * max_item_num) tensor of input vectors over time.
+        u_t_stack: (num_trials, steps, 3 * max_item_num) tensor of input vectors over time.
     """
     # Total simulation time and steps
     T_simul = T_init + T_stimi + T_delay + T_decode
@@ -47,7 +48,12 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
-    u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) + alpha ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+    # u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+    u_0 = ( torch.stack((
+                1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
+                1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
+                1 - 2 * sin_theta / sqrt(6),
+            ), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 3)
 
 
     # Reshape to match output shape (combine cos and sin into one dimension)

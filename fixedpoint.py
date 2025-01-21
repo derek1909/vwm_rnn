@@ -12,7 +12,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
     Args:
         model: Trained RNN model (torch.nn.Module)
             The recurrent neural network to analyze.
-        input_states: The input vector (num_trials, 2 * max_item_num)
+        input_states: The input vector (num_trials, 3 * max_item_num)
         hidden_states: Hidden states collected during simulation (trials, steps, neuron)
         fpf_name: the time period for fixed point analysis (e.g., 'stimuli', 'decode').
 
@@ -49,9 +49,9 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
 
     # Inputs to analyze the RNN in the absence of external stimuli
     if fpf_name == 'stimuli':
-        inputs = input_states[trial_indices].numpy() # [n_inits x max_item_num*2]
+        inputs = input_states[trial_indices].numpy() # [n_inits x max_item_num*3]
     else:
-        inputs = np.zeros([1, max_item_num * 2])
+        inputs = np.zeros([1, max_item_num * 3])
 
     # Find fixed points
     unique_fps, _ = fpf.find_fixed_points(sampled_states, inputs)
