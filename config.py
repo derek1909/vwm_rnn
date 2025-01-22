@@ -20,7 +20,7 @@ num_neurons = model_params["num_neurons"]
 tau = model_params["tau"]
 dt = model_params["dt"]
 ILC_noise = model_params["ILC_noise"] # rad
-process_noise = model_params["process_noise"] # Hz
+spike_noise_factor = model_params["spike_noise_factor"] # Hz
 decode_noise = model_params["decode_noise"]
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
 T_init = model_params["T_init"]
@@ -44,7 +44,7 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
-rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}'
+rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}k{spike_noise_factor}'
 model_dir = f"rnns/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
 

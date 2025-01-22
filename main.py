@@ -10,7 +10,7 @@ from fixedpoint import fixed_points_finder
 
 
 if __name__ == "__main__":
-    model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
+    model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, spike_noise_factor, device=device, positive_input=positive_input)
 
     # Load model and history if training from a previous checkpoint
     if not from_scratch:

@@ -6,7 +6,7 @@
         "tau": 50,
         "dt": 10,
         "ILC_noise": 0.01,
-        "process_noise": 0.5,
+        "spike_noise_factor": 0.5,
         "decode_noise": 0.0,
         "positive_input": true,
         "T_init": 20,
