@@ -60,6 +60,9 @@ class RNNMemoryModel(nn.Module):
 
         # Iterate over time steps
         for t in range(seq_len):
+            assert torch.all(r >= 0), "Negative values detected in r!"
+            assert torch.all(torch.isfinite(r)), "NaN or Inf detected in r!"
+
             u_t = u[:, t, :]  # Current input at time step t (batch_size, input)
             
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)

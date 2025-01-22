@@ -23,6 +23,7 @@ from copy import deepcopy
 
 import torch
 from torch.autograd.functional import jacobian
+import torch.nn.functional as F
 
 from .FixedPointFinderBase import FixedPointFinderBase
 from .FixedPoints import FixedPoints
@@ -142,10 +143,12 @@ class FixedPointFinderTorch(FixedPointFinderBase):
             dq_b = torch.abs(q_b - q_prev_b)
             
             optimizer.zero_grad()
-            q_scalar.backward()
+            q_scalar.backward(retain_graph=True)
             
             optimizer.step()
             scheduler.step(metrics=q_scalar)
+
+            x_1xbxd = F.relu(x_1xbxd) # Ensure state is non-negative
 
             iter_learning_rate = scheduler.state_dict()['_last_lr'][0]
 
