@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 from config import device
 
 class RNNMemoryModel(nn.Module):
@@ -66,9 +68,10 @@ class RNNMemoryModel(nn.Module):
             u_t = u[:, t, :]  # Current input at time step t (batch_size, input)
         
             # Add Poisson-like noise to the firing rate r
-            observed_r = torch.clamp(
-                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.tau) * torch.randn_like(r, device=self.device),
-                min=0)
+            observed_r = F.relu(
+                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.dt) * torch.randn_like(r, device=self.device),
+            )
+            
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
             r_dot = (-r + self.activation_function(self.W @ observed_r.T + self.B @ u_t.T).T) / self.tau
             
