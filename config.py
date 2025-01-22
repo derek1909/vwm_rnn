@@ -32,7 +32,7 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
-from_scratch = training_params["from_scratch"]
+load_history = training_params["load_history"]
 num_epochs = int(training_params["num_epochs"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty

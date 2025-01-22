@@ -16,7 +16,7 @@
     },
     "training_params": {
         "train_rnn": false,
-        "from_scratch": false,
+        "load_history": true,
         "num_epochs": 5e5,
         "eta": 1e-4,
         "lambda_reg": 5e-4,
