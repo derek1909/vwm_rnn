@@ -65,10 +65,14 @@ class RNNMemoryModel(nn.Module):
 
             u_t = u[:, t, :]  # Current input at time step t (batch_size, input)
         
-            # Add Poisson-like noise to the firing rate r
-            observed_r = torch.clamp(
-                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.tau) * torch.randn_like(r, device=self.device),
-                min=0)
+            # # Add Poisson-like noise to the firing rate r
+            # observed_r = torch.clamp(
+            #     r + self.spike_noise_factor * torch.sqrt(r*1e3/self.tau) * torch.randn_like(r, device=self.device),
+            #     min=0)
+
+            # Add Poisson noise to the firing rate
+            observed_r = torch.poisson(r * self.dt) / (self.dt) # not 1e3 is to make poisson more smooth
+
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
             r_dot = (-r + self.activation_function(self.W @ observed_r.T + self.B @ u_t.T).T) / self.tau
             
