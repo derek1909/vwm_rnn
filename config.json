@@ -27,8 +27,9 @@
         "adaptive_lr_patience": 60
     },
     "model_and_logging_params": {
-        "rnn_name": "3Dinput",
-        "cuda_device": 0
+        "rnn_name": "TMR-ilc-1",
+        "cuda_device": 1,
+        "error_dist_bool": false
     },
     "fpf_params": {
         "fpf_bool": true,

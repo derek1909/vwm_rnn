@@ -31,4 +31,8 @@ if __name__ == "__main__":
         print(f"Running final Fixed Point Analysis...")
         fixed_points_finder(model)
 
+    # Plot training curves
+    if error_dist_bool:
+        plot_error_dist(model)
+
     # plt.show()

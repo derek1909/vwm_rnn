@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
 from config import device
 
 class RNNMemoryModel(nn.Module):
@@ -69,8 +71,8 @@ class RNNMemoryModel(nn.Module):
             r_dot = (-r + self.activation_function(self.W @ r.T + self.B @ u_t.T).T) / self.tau
             
             # Update firing rate with Euler integration
-            r = r + self.dt * r_dot + random_noise[:,t,:]
-
+            r = F.relu(r + self.dt * r_dot + random_noise[:,t,:])
+            
             # Store the firing rate for this time step
             r_output[:, t, :] = r
 

@@ -334,3 +334,75 @@ def plot_weights(model):
     plt.close()
 
     print(f"All weight matrices plot saved at: {save_path}")
+
+def plot_error_dist(model):
+    """
+    Plot the distribution of decoding errors for different item numbers after training.
+    This function visualizes the model's performance by comparing decoded angles with input angles.
+    """
+    num_trials = 3000
+    item_num = [8,4,2,1]
+    # Split num_trials into len(item_num) groups
+    trials_per_group = num_trials // len(item_num)
+    remaining_trials = num_trials % len(item_num)
+    trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
+    
+    # Generate random presence indicators
+    input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=False)
+    start_index = 0
+    for i, count in enumerate(trial_counts):
+        end_index = start_index + count
+        one_hot_indices = torch.stack([
+            torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)
+        ])
+        input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
+        start_index = end_index
+    
+    # Generate random input angles
+    input_thetas = (torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi
+    
+    # Generate input tensor
+    u_t = generate_input(input_presence, input_thetas, ILC_noise, T_init, T_stimi, T_delay, T_decode, dt)
+    
+    # Run simulation and slice the output
+    r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
+    step_threshold = int((T_init + T_stimi + T_delay) / dt)
+    r_decode = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
+    
+    # Decode the output
+    u_hat = decode(model.F, r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
+    u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
+    
+    # Compute angles diff
+    cos_thetas = u_hat_reshaped[..., 0]  # (steps, trials, max_items)
+    sin_thetas = u_hat_reshaped[..., 1]  # (steps, trials, max_items)
+    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (steps, trials, max_items)
+    angular_diff = (input_thetas - decoded_thetas.mean(dim=0) + torch.pi) % (2 * torch.pi) - torch.pi  # (trials,items)
+
+
+    # Plot error distribution
+    plt.figure(figsize=(6, 5))
+    bins = np.linspace(-np.pi, np.pi, 60)
+    
+    start_index = 0
+    for i, count in enumerate(trial_counts):
+        end_index = start_index + count
+        mask = (input_presence[start_index:end_index].bool())
+        sliced_angular_diff = angular_diff[start_index:end_index]
+        err = sliced_angular_diff[mask].detach().cpu().numpy()
+        plt.hist(err, bins=bins, alpha=0.5, label=f'{item_num[i]} item(s)',density=True)
+        start_index = end_index
+    
+    plt.xlim(-np.pi, np.pi)
+    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi], 
+            [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+
+    plt.xlabel('Angular Error (radians)')
+    plt.ylabel('Probability Density')
+    plt.legend()
+    plt.title('Distribution of Decoding Errors')
+    
+    # Save the plot
+    file_path = os.path.join(model_dir, f'error_distrib_{rnn_name}.png')
+    plt.savefig(file_path, dpi=300)
+    plt.close()

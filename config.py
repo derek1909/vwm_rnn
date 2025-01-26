@@ -47,6 +47,7 @@ rnn_name = logging_params["rnn_name"]
 rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}'
 model_dir = f"rnns/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
+error_dist_bool = logging_params["error_dist_bool"]
 
 # Fixed Point Finder parameters
 fpf_bool = fpf_params["fpf_bool"]
