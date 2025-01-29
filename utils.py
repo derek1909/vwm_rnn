@@ -267,22 +267,20 @@ def load_model_and_history(model, model_dir, model_name="model.pth", history_nam
     """Loads the model state and training history from the specified directory."""
     history_path = f'{model_dir}/{history_name}'
 
-    # Load history
     if os.path.exists(history_path):
+        # Load model
         with open(history_path, 'r') as f:
             history = json.load(f)
+        epoch = history['epochs'][-1]
+        model_name = f'model_epoch{epoch}.pth'
+        model_path = f'{model_dir}/models/{model_name}'
+        if os.path.exists(model_path):
+            model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
+
     else:
         history = None
 
-    # Load model
-    epoch = history['epochs'][-1]
-    model_name = f'model_epoch{epoch}.pth'
-    model_path = f'{model_dir}/models/{model_name}'
-    if os.path.exists(model_path):
-        model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
-
     return model, history
-
 
 def plot_weights(model):
     """

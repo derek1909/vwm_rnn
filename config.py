@@ -1,11 +1,25 @@
 import torch
+import yaml
 import json
 import os
 import shutil
+import argparse
 
-# Load the configuration from the JSON file
-with open('config.json', "r") as f:
-    config = json.load(f)
+parser = argparse.ArgumentParser(description="Specify YAML configuration file path")
+parser.add_argument("--config", type=str, default="./config.yaml", help="Path to YAML configuration file")
+args = parser.parse_args()
+
+config_path = args.config
+
+# Load config file
+if config_path.endswith(".yaml") or config_path.endswith(".yml"):
+    with open(config_path, "r") as f:
+        config = yaml.safe_load(f)
+elif config_path.endswith(".json"):
+    with open(config_path, "r") as f:
+        config = json.load(f)
+else:
+    raise ValueError("Unsupported config file format. Use YAML or JSON.")
 
 # Extract configurations
 model_params = config["model_params"]
@@ -58,13 +72,16 @@ fpf_trials = fpf_params["fpf_trials"]  # Number of trials per epoch
 fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
 fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 
+os.makedirs(model_dir, exist_ok=True)
+destination_path = os.path.join(model_dir, os.path.basename(config_path))
+if os.path.abspath(config_path) != os.path.abspath(destination_path):
+    shutil.copyfile(config_path, destination_path)
+
+
 if torch.cuda.is_available():
     torch.cuda.set_device(cuda_device)
     device = f'cuda:{cuda_device}'
 else:
     device = 'cpu'  # Fallback to CPU if CUDA is not available
 
-os.makedirs(model_dir, exist_ok=True)  # Create directory if it doesn't exist
-shutil.copyfile('./config.json', f'{model_dir}/config.json')
-print(f"Configuration saved to {model_dir}/config.json")
 print(f"Using device: {device}")

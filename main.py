@@ -1,13 +1,13 @@
-import torch
-import os
-import json
+# import torch
+# import os
+# import json
+import argparse
 
 from rnn import *
 from config import *
 from train import *
 from utils import *
 from fixedpoint import fixed_points_finder
-
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
