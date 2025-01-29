@@ -181,33 +181,42 @@ def plot_fps(fps,
 
     return fig
 
-def plot_F_vs_PCA_1item(F, hidden_state_end, thetas, pca_dir, epoch):
+def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, epoch):
     # thetas: (trials,1) -> (trials,)
     thetas = thetas.detach().numpy().squeeze()
+    hidden_state_end = hidden_state_end.detach().numpy().squeeze()
+    F = F.detach().numpy().squeeze()
 
     pca = PCA(n_components=2)
     pca.fit(hidden_state_end)
     pca_points = pca.transform(hidden_state_end)  # (trials, 2*max_items)
 
-    decode_points = hidden_state_end @ F.T
+    decode_points = (hidden_state_end @ F.T)[:,:2]
+
+
+    def normalize_radius(points, target_radius):
+        radii = np.linalg.norm(points, axis=1)  # 原始半径
+        
+        valid_radii = np.where(radii > 1e-6, radii, 1)
+        scale_factors = target_radius / valid_radii
+        
+        normalized = np.zeros_like(points)
+        normalized[:,0] = scale_factors * points[:,0]
+        normalized[:,1] = scale_factors * points[:,1]
+        return normalized
+
+    # pca_points = normalize_radius(pca_points, target_radius=40)
+    # decode_points = normalize_radius(decode_points, target_radius=20)
+
 
     # 2D scatter plot
-    plt.figure(figsize=(5, 5))
-    # scatter1 = plt.scatter(
-    #     pca_points[:, 0], pca_points[:, 1], c=thetas, cmap='rainbow',
-    #     label='PCA Points', marker='^', s=60, edgecolor='black', linewidth=0.5
-    # )
-    # scatter2 = plt.scatter(
-    #     decode_points[:, 0], decode_points[:, 1], c=thetas, cmap='rainbow',
-    #     label='Decoded Points', marker='o', s=40, edgecolor='black', linewidth=0.5
-    # )
-    
+    plt.figure(figsize=(5, 4))
     scatter1 = plt.scatter(
-        pca_points[:, 0], pca_points[:, 1], color='red',
+        pca_points[:, 0], pca_points[:, 1], c=thetas, cmap='rainbow',
         label='PCA Points', marker='^', s=60, edgecolor='black', linewidth=0.5
     )
     scatter2 = plt.scatter(
-        decode_points[:, 0], decode_points[:, 1], color='blue',
+        decode_points[:, 0], decode_points[:, 1], c=thetas, cmap='rainbow',
         label='Decoded Points', marker='o', s=40, edgecolor='black', linewidth=0.5
     )
     cbar = plt.colorbar(scatter1)
@@ -375,31 +384,31 @@ def plot_123d(ax, z, **kwargs):
         raise ValueError("z should have 1, 2, or 3 columns corresponding to 1D, 2D, or 3D data.")
     
 def prepare_state(model):
+    fpf_item_num = [1]
     # Generate presence for each group
-    input_presence = torch.zeros(num_trials, max_item_num, requires_grad=True, device=device)
-    trials_per_group = num_trials // len(item_num)  # Ensure equal split
-    remaining_trials = num_trials % len(item_num)  # Handle leftover trials
-    trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
+    input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
+    trials_per_group = fpf_trials // len(fpf_item_num)  
+    remaining_trials = fpf_trials % len(fpf_item_num)  
+    trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(fpf_item_num))]
 
     start_index = 0
     for i, count in enumerate(trial_counts):
         end_index = start_index + count
-        one_hot_indices = torch.stack([torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)])
-        input_presence_temp = input_presence.clone()
-        input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
-        input_presence = input_presence_temp
+        # Ensuring the first item (index 0) is always included
+        random_indices = torch.stack([torch.randperm(max_item_num - 1, device=device)[:fpf_item_num[i] - 1] + 1 for _ in range(count)])
+        one_hot_indices = torch.cat([torch.zeros(count, 1, dtype=torch.long, device=device), random_indices], dim=1)
+        input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
         start_index = end_index
 
-    input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi) # for multi items
-    # input_thetas = torch.linspace(-torch.pi, torch.pi, num_trials, device=device).unsqueeze(1) # for 1item
-
-    # for 2 items
-    # num_per_dim = int(num_trials**0.5)  # Number of trials per dimension
-    # theta1 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
-    # theta2 = torch.linspace(-torch.pi, torch.pi, num_per_dim, device=device)
-    # theta1_grid, theta2_grid = torch.meshgrid(theta1, theta2, indexing='ij')
-    # input_thetas = torch.stack([theta1_grid.flatten(), theta2_grid.flatten()], dim=1)
-
+    # Generate the orientation of first item independently for each trial
+    first_item = torch.linspace(-torch.pi, torch.pi, fpf_trials, device=device).unsqueeze(1) # (trials,1)
+    if max_item_num == 1:
+         input_thetas = first_item
+    elif max_item_num > 1:
+        # Generate the remaining items, which are shared across all trials
+        shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
+        # Concatenate the first item (unique per trial) with the shared items (same for all trials)
+        input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
 
     u_t = generate_input(
         presence=input_presence,

@@ -54,6 +54,7 @@ fpf_bool = fpf_params["fpf_bool"]
 fpf_pca_bool = fpf_params["fpf_pca_bool"]
 fpf_names = fpf_params["fpf_names"] # stimuli or decode.
 fpf_N_init = fpf_params["fpf_N_init"] # Number of initial states for optimization
+fpf_trials = fpf_params["fpf_trials"]  # Number of trials per epoch
 fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
 fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 

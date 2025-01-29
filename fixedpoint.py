@@ -3,7 +3,7 @@ import ipdb
 
 
 from FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
-from utils_fpf import *
+from fixedpoint_utils import *
 
 def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
     """
@@ -26,7 +26,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
 
     # valid_bxt: [n_batch x n_time]
     if fpf_name == 'decode':
-        start_t_idx = int((T_init + T_stimi + T_delay) / dt)
+        start_t_idx = -2
         end_t_idx = -1
     # elif fpf_name == 'delay':
     #     start_t_idx = int((T_init + T_stimi) / dt)
@@ -41,7 +41,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
         start_t_idx = 0
         end_t_idx = -1
     
-    valid_bxt = np.zeros((num_trials, simul_steps))
+    valid_bxt = np.zeros((fpf_trials, simul_steps))
     valid_bxt[:, start_t_idx:end_t_idx] = 1
 
     # sampled_states has shape [n_inits x n_states]
@@ -57,7 +57,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, epoch):
     unique_fps, _ = fpf.find_fixed_points(sampled_states, inputs)
 
     # Visualization
-    trials_to_plot = list(range(min(64, num_trials)))
+    trials_to_plot = list(range(min(64, fpf_trials)))
     fig = plot_fps(
         unique_fps,
         state_traj=hidden_states,
@@ -91,10 +91,10 @@ def fixed_points_finder(model, epoch=None):
         # print(f"Fixed points found: {len(unique_fps)}")
 
     if fpf_pca_bool:
-        plot_F_vs_PCA_1item(
+        plot_F_vs_PCA(
             model.F.detach().cpu(),
             hidden_states[:,-1,:],
-            thetas,
+            thetas[:,0],
             pca_dir = f'{model_dir}/pca',
             epoch=epoch,
         )
