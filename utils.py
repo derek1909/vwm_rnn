@@ -247,10 +247,10 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
     # Set the x-axis label for the last subplot
     axes[-1].set_xlabel("Epochs")
 
-    file_path = os.path.join(model_dir, f'training_history_{rnn_name}.png')
+    file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
-def save_model_and_history(model, history, model_dir, model_name="model.pth", history_name="training_history.json"):
+def save_model_and_history(model, history, model_dir, model_name="model.pth", history_name="training_history.yaml"):
     """Saves the model state and training history to the specified directory."""
     os.makedirs(model_dir, exist_ok=True)
 
@@ -261,22 +261,21 @@ def save_model_and_history(model, history, model_dir, model_name="model.pth", hi
     # Save training history
     history_path = f'{model_dir}/{history_name}'
     with open(history_path, 'w') as f:
-        json.dump(history, f)
+        yaml.dump(history, f, default_flow_style=False)
 
-def load_model_and_history(model, model_dir, model_name="model.pth", history_name="training_history.json"):
+def load_model_and_history(model, model_dir, model_name="model.pth", history_name="training_history.yaml"):
     """Loads the model state and training history from the specified directory."""
     history_path = f'{model_dir}/{history_name}'
 
     if os.path.exists(history_path):
         # Load model
         with open(history_path, 'r') as f:
-            history = json.load(f)
+            history = yaml.safe_load(f)
         epoch = history['epochs'][-1]
         model_name = f'model_epoch{epoch}.pth'
         model_path = f'{model_dir}/models/{model_name}'
         if os.path.exists(model_path):
             model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
-
     else:
         history = None
 
@@ -327,7 +326,7 @@ def plot_weights(model):
         ax.set_anchor("C")
 
     # Save figure
-    save_path = os.path.join(model_dir, f"weights_{rnn_name}.png")
+    save_path = os.path.join(model_dir, f"weights.png")
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
     plt.close()
 
@@ -401,6 +400,6 @@ def plot_error_dist(model):
     plt.title('Distribution of Decoding Errors')
     
     # Save the plot
-    file_path = os.path.join(model_dir, f'error_distrib_{rnn_name}.png')
+    file_path = os.path.join(model_dir, f'error_distrib.png')
     plt.savefig(file_path, dpi=300)
     plt.close()

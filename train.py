@@ -3,6 +3,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from tqdm import tqdm
 from early_stopping_pytorch.early_stopping import EarlyStopping
+import yaml
 
 from rnn import *
 from config import *
@@ -83,23 +84,25 @@ def error_calc(F, r_stack, target_thetas, presence, train_err=True):
             - 'variance_eval_error' (torch.Tensor): Variance of evaluation error.
             - 'activation_penalty' (torch.Tensor): Activation penalty term.
     """
-    # Reshape r_stack for decoding and recover its original shape
-    num_steps, num_trials, num_neurons = r_stack.shape
-    u_hat_stack = decode(F, r_stack.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
+    # slice r_stack and reshape for decoding and recover its original shape
+    step_threshold = int((T_init + T_stimi + T_delay) / dt)
+    r_decode = r_stack[step_threshold:, :, :]
+    num_steps, num_trials, num_neurons = r_decode.shape
+    u_hat = decode(F, r_decode.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
 
     # Generate target outputs (ground truth for training loss)
     u_0 = generate_target(presence, target_thetas, stimuli_present=True)
 
     # Calculate training error if enabled
     if train_err:
-        mean_train_error, var_train_error = calc_train_error(u_hat_stack, u_0, presence)
+        mean_train_error, var_train_error = calc_train_error(u_hat, u_0, presence)
     else:
         mean_train_error, var_train_error = torch.nan, torch.nan
 
     # Calculate evaluation error (angular)
-    mean_eval_error, var_eval_error = calc_eval_error(u_hat_stack, target_thetas, presence)
+    mean_eval_error, var_eval_error = calc_eval_error(u_hat, target_thetas, presence)
 
-    # Calculate activation penalty
+    # Calculate activation penalty (using all time steps)
     activ_penalty =  r_stack.abs().mean()
 
     return mean_train_error, var_train_error, mean_eval_error, var_eval_error, activ_penalty
@@ -175,12 +178,10 @@ def train(model, model_dir, history=None):
             )
             
             r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
+            r_output_T = r_output.transpose(0, 1)  # (steps, trial, neuron)
 
-            step_threshold = int((T_init + T_stimi + T_delay) / dt)
-            r_loss = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
-            
             # Calculate total loss
-            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model.F, r_loss, input_thetas, input_presence, train_err=True)
+            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model.F, r_output_T, input_thetas, input_presence, train_err=True)
             total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
 
             total_loss.backward()
@@ -200,7 +201,7 @@ def train(model, model_dir, history=None):
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
                 _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(model.F, 
-                                    r_loss[:, start_index:end_index], 
+                                    r_output_T[:, start_index:end_index], 
                                     input_thetas[start_index:end_index], 
                                     input_presence[start_index:end_index], 
                                     train_err=False)
