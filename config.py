@@ -74,7 +74,7 @@ fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 
 os.makedirs(model_dir, exist_ok=True)
 destination_path = os.path.join(model_dir, os.path.basename(config_path))
-if os.path.abspath(config_path) != os.path.abspath(destination_path):
+if os.path.realpath(config_path) != os.path.realpath(destination_path):
     shutil.copyfile(config_path, destination_path)
 
 
@@ -84,4 +84,5 @@ if torch.cuda.is_available():
 else:
     device = 'cpu'  # Fallback to CPU if CUDA is not available
 
-print(f"Using device: {device}")
+print(f"rnn_name: {rnn_name}")
+print(f"using device: {device}")

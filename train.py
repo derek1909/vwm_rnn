@@ -118,13 +118,13 @@ def train(model, model_dir, history=None):
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
             "epochs": [],
-            "lr": eta,
+            "lr": [],
         }
         start_epoch = 0
         start_lr = eta
     else:
         start_epoch = history['epochs'][-1]
-        start_lr = history["lr"][0]
+        start_lr = history["lr"][-1]
         
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=adaptive_lr_patience)
@@ -219,7 +219,7 @@ def train(model, model_dir, history=None):
                 history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
                 history["activation_per_epoch"].append(sum(activation_buffer) / len(activation_buffer))
                 history["epochs"].append(epoch)
-                history["lr"] = scheduler.get_last_lr()
+                history["lr"].append(scheduler.get_last_lr()[0])
 
                 for i in range(len(group_error_buffers)):
                     history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))

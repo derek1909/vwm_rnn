@@ -201,6 +201,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         axes[i].set_title(f"{item_num[i]} item. Loss and Activation vs Epoch")
         axes[i].tick_params(axis='y', labelcolor=err_color)
         axes[i].grid(True)
+        axes[i].set_ylim(0, 2)
 
 
         # Plot activations

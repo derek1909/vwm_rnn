@@ -4,6 +4,7 @@ import os
 import shutil
 import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 def setup_experiment(exp_name, config_source="./config.yaml"):
     """Setup experiment directory and copy config file."""
@@ -12,6 +13,12 @@ def setup_experiment(exp_name, config_source="./config.yaml"):
     
     os.makedirs(exp_dir, exist_ok=True)
     shutil.copy2(config_source, config_dest)
+
+    """Save a copy of the current script into the experiment folder."""
+    # sys.argv[0] contains the current script path.
+    current_script = sys.argv[0]
+    dest_path = os.path.join(exp_dir, os.path.basename(current_script))
+    shutil.copy2(current_script, dest_path)
     
     print(f"Created experiment folder: {exp_dir}")
     print(f"Please check the configuration file at {config_dest} before continuing.")
@@ -19,24 +26,29 @@ def setup_experiment(exp_name, config_source="./config.yaml"):
     
     return exp_dir, config_dest
 
-def run_experiments(exp_name, config_path, rnn_sizes, main_script="python main.py"):
+def run_experiments(exp_name, config_path, para_list, para_cat, para_name, main_script="python main.py"):
     """Run experiments for different RNN sizes."""
-    for rnn_size in rnn_sizes:
+    for para in para_list:
         # Load and modify config
         with open(config_path, "r") as f:
             data = yaml.safe_load(f)
             
-        data["model_and_logging_params"]["rnn_name"] = f"exp_{exp_name}/{exp_name}"
-        data["model_params"]["num_neurons"] = rnn_size
+        def format_param(param):
+            if isinstance(param, float):
+                return f"{param:.8f}"
+            return f"{param}"
+        
+        data["model_and_logging_params"]["rnn_name"] = f"exp_{exp_name}/{para_name}-{format_param(para)}"
+        data[para_cat][para_name] = para
         
         # Save modified config
         with open(config_path, "w") as f:
             yaml.dump(data, f, default_flow_style=False)
             
-        print(f"Running main.py with num_neurons = {rnn_size}")
+        print(f"Running main.py with {para_name} = {para}.")
         subprocess.run(f"{main_script} --config {config_path}", shell=True)
 
-def collect_results(exp_dir):
+def collect_results(exp_dir, para_name):
     """Collect results from all completed runs."""
     final_results = {}
     
@@ -47,9 +59,9 @@ def collect_results(exp_dir):
         # Extract num_neurons from directory name
         parts = rnn_dir.replace('_', '-').split('-')
         try:
-            rnn_size = int(parts[-2])
+            para = parts[-2]
         except ValueError:
-            print(f"Skipping directory {rnn_dir} - cannot extract num_neurons")
+            print(f"Skipping directory {rnn_dir} - cannot extract {para_name}")
             continue
         
         # Load training history
@@ -58,7 +70,7 @@ def collect_results(exp_dir):
             with open(history_path, 'r') as f:
                 history = yaml.safe_load(f)
                 
-            final_results[rnn_size] = {
+            final_results[para] = {
                 'final_epoch': history['epochs'][-1],
                 'final_error': history['error_per_epoch'][-1],
                 'final_error_std': history['error_std_per_epoch'][-1],
@@ -73,7 +85,7 @@ def collect_results(exp_dir):
             
     return final_results
 
-def plot_results(results, save_path, fig_size=(8, 3)):
+def plot_results_vs_neurons(results, save_path, fig_size=(8, 3)):
     """Plot and save performance curves."""
     neuron_sizes = sorted(list(results.keys()))
     setsizes = np.arange(1, 11)
@@ -109,26 +121,28 @@ def plot_results(results, save_path, fig_size=(8, 3)):
 
 def main():
     # Parameters
-    EXP_NAME = "500delayNotPI"
-    RNN_SIZES = [128, 256, 512, 1024, 2048]
+    EXP_NAME = "ILC_NoDelay"
+    PARA_CATA = "model_params"
+    PARA_NAME = "ILC_noise"
+    PARA_LIST = [0, 1e-3, 1e-2, 0.1, 0.5, 1, 2, 5]
     
     # Setup experiment
     exp_dir, config_path = setup_experiment(EXP_NAME)
     
     # Run experiments (uncomment to run)
-    run_experiments(EXP_NAME, config_path, RNN_SIZES)
+    run_experiments(EXP_NAME, config_path, PARA_LIST, PARA_CATA, PARA_NAME)
     
     # Collect and save results
-    results = collect_results(exp_dir)
+    results = collect_results(exp_dir, PARA_NAME)
     results_path = f"{exp_dir}/final_results.yaml"
     with open(results_path, 'w') as f:
         yaml.dump(results, f, default_flow_style=False)
     print(f"Final results saved to {results_path}")
     
     # Plot results
-    plot_path = f"{exp_dir}/performance_curves.png"
-    plot_results(results, plot_path)
-    print(f"Plot saved to {plot_path}")
+    # plot_path = f"{exp_dir}/performance_curves.png"
+    # plot_results_vs_neurons(results, plot_path)
+    # print(f"Plot saved to {plot_path}")
 
 if __name__ == "__main__":
     main()
