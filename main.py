@@ -10,10 +10,10 @@ from utils import *
 from fixedpoint import fixed_points_finder
 
 if __name__ == "__main__":
-    model = RNNMemoryModel(max_item_num, num_neurons, dt, process_noise, device=device, positive_input=positive_input)
+    model = RNNMemoryModel(max_item_num, num_neurons, dt, spike_noise_factor, device=device, positive_input=positive_input)
 
     # Load model and history if training from a previous checkpoint
-    if not from_scratch:
+    if load_history:
         model, history = load_model_and_history(model, model_dir)
     else:
         history = None  # Start fresh

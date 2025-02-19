@@ -33,7 +33,7 @@ item_num = model_params["item_num"]
 num_neurons = model_params["num_neurons"]
 dt = model_params["dt"]
 ILC_noise = model_params["ILC_noise"] # rad
-process_noise = model_params["process_noise"] # Hz
+spike_noise_factor = model_params["spike_noise_factor"] # Hz
 decode_noise = model_params["decode_noise"]
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
 T_init = model_params["T_init"]
@@ -45,7 +45,7 @@ simul_steps = int(T_simul/dt)
 
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
-from_scratch = training_params["from_scratch"]
+load_history = training_params["load_history"]
 num_epochs = int(training_params["num_epochs"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
@@ -57,7 +57,7 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
-rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}'
+rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}k{spike_noise_factor}'
 model_dir = f"rnns/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
 error_dist_bool = logging_params["error_dist_bool"]

@@ -4,7 +4,7 @@ model_params:
   num_neurons: 512
   dt: 10
   ILC_noise: 0.01
-  process_noise: 0.5
+  spike_noise_factor: 0.0001
   decode_noise: 0.0
   positive_input: false
   T_init: 20
@@ -14,7 +14,7 @@ model_params:
 
 training_params:
   train_rnn: true
-  from_scratch: true
+  load_history: false
   num_epochs: 500000
   eta: 0.0001
   lambda_reg: 0.0005

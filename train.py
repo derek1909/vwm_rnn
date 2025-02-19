@@ -146,8 +146,6 @@ def train(model, model_dir, history=None):
 
     with tqdm(total=num_epochs, initial=start_epoch, desc="Training Progress", unit="epoch") as pbar_epoch:
         for epoch in range(start_epoch, num_epochs):
-            optimizer.zero_grad()
-
             # Generate presence for each group
             input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
             start_index = 0
@@ -183,7 +181,8 @@ def train(model, model_dir, history=None):
             # Calculate total loss
             mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model.F, r_output_T, input_thetas, input_presence, train_err=True)
             total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
-
+            
+            optimizer.zero_grad()
             total_loss.backward()
             optimizer.step()
             scheduler.step(total_loss)

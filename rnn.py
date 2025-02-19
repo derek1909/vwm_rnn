@@ -5,11 +5,11 @@ import math as math
 from config import device
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, dt=0.1, noise_level=0.0, device='cpu', positive_input=True):
+    def __init__(self, max_item_num, num_neurons, dt=0.1, spike_noise_factor=0.0, device='cpu', positive_input=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
         self.dt = dt
-        self.noise_level = noise_level
+        self.spike_noise_factor = spike_noise_factor
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
         self.positive_input = positive_input
@@ -35,7 +35,10 @@ class RNNMemoryModel(nn.Module):
         return self
     
     def activation_function(self, x):
-        # x: (num_neurons, batch_size)
+        """
+        x: (num_neurons, batch_size)
+        Saturation: 16Hz
+        """
         return 8 * (1 + torch.tanh(0.4 * x - 3))
 
     def forward(self, u, r0=None):
@@ -60,20 +63,22 @@ class RNNMemoryModel(nn.Module):
         # Current firing rate
         r = r0.squeeze(0)  # Shape: (batch_size, neuron)
 
-        # Prepare random noise for all time steps in advance
-        random_noise = self.noise_level * torch.randn((batch_size, seq_len, self.num_neurons), device=self.device)
-
         for t in range(seq_len):
             assert torch.all(r >= 0), "Negative values detected in r!"
             assert torch.all(torch.isfinite(r)), "NaN or Inf detected in r!"
 
             u_t = u[:, t, :]  # Current input at time step t (batch_size, input)
+        
+            # Add Poisson-like noise to the firing rate r
+            observed_r = F.relu(
+                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.dt) * torch.randn_like(r, device=self.device),
+            )
             
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
-            r_dot = (-r + self.activation_function(self.W @ r.T + self.B @ u_t.T).T) / self.tau
+            r_dot = (-r + self.activation_function(self.W @ observed_r.T + self.B @ u_t.T).T) / self.tau
             
             # Update firing rate with Euler integration
-            r = F.relu(r + self.dt * r_dot + random_noise[:,t,:])
+            r = F.relu(r + self.dt * r_dot)
             
             # Store the firing rate for this time step
             r_output[:, t, :] = r
