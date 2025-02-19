@@ -31,7 +31,6 @@ fpf_params = config["fpf_params"]
 max_item_num = model_params["max_item_num"]
 item_num = model_params["item_num"]
 num_neurons = model_params["num_neurons"]
-tau = model_params["tau"]
 dt = model_params["dt"]
 ILC_noise = model_params["ILC_noise"] # rad
 process_noise = model_params["process_noise"] # Hz

@@ -1,19 +1,21 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import math as math
 from config import device
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, tau=1.0, dt=0.1, noise_level=0.0, device='cpu', positive_input=True):
+    def __init__(self, max_item_num, num_neurons, dt=0.1, noise_level=0.0, device='cpu', positive_input=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
-        self.tau = tau
         self.dt = dt
         self.noise_level = noise_level
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
         self.positive_input = positive_input
+
+        # Log-space sampling for tau: 10ms~100ms
+        self.register_buffer('tau', 10 * torch.exp(torch.rand(num_neurons, device=device) * math.log(10)))
         
         if self.positive_input:
             self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*3, device=device))*2)
@@ -33,7 +35,8 @@ class RNNMemoryModel(nn.Module):
         return self
     
     def activation_function(self, x):
-        return 400 * (1 + torch.tanh(0.4 * x - 3)) / self.tau
+        # x: (num_neurons, batch_size)
+        return 8 * (1 + torch.tanh(0.4 * x - 3))
 
     def forward(self, u, r0=None):
         """
@@ -60,7 +63,6 @@ class RNNMemoryModel(nn.Module):
         # Prepare random noise for all time steps in advance
         random_noise = self.noise_level * torch.randn((batch_size, seq_len, self.num_neurons), device=self.device)
 
-        # Iterate over time steps
         for t in range(seq_len):
             assert torch.all(r >= 0), "Negative values detected in r!"
             assert torch.all(torch.isfinite(r)), "NaN or Inf detected in r!"
