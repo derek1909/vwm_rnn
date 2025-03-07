@@ -3,7 +3,7 @@ import yaml
 import matplotlib.pyplot as plt
 
 # Path to the YAML file
-yaml_file = '/homes/jd976/working/vwm_rnn/rnns/exp_Difficalty/final_results.yaml'
+yaml_file = '/homes/jd976/working/vwm_rnn/rnns/exp_Delay_MultiItem_HeterTau/final_results.yaml'
 
 # Load the YAML data
 with open(yaml_file, 'r') as f:

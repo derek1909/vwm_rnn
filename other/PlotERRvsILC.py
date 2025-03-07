@@ -3,7 +3,7 @@ import yaml
 import matplotlib.pyplot as plt
 
 # Path to the YAML file
-yaml_file = "rnns/exp_ILC_NoDelay/final_results.yaml"
+yaml_file = "rnns/exp_ILC_FixedNoise/final_results.yaml"
 
 # Load the YAML data
 with open(yaml_file, 'r') as f:
