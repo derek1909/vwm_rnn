@@ -14,9 +14,11 @@ class RNNMemoryModel(nn.Module):
         self.device = device
         self.positive_input = positive_input
 
-        # Log-space sampling for tau: 10ms~100ms
-        self.register_buffer('tau', 10 * torch.exp(torch.rand(num_neurons, device=device) * math.log(10)))
-        
+        # Log-space sampling for tau: 50ms~50*20ms
+        tau = 50 * torch.exp(torch.rand(num_neurons, device=device) * math.log(20))
+        tau, _ = torch.sort(tau)
+        self.register_buffer('tau', tau)
+
         if self.positive_input:
             self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num*3, device=device))*2)
         else:

@@ -37,14 +37,14 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     num_trials, max_item_num = presence.shape
 
     # Add noise to theta
-    theta_noisy = theta.unsqueeze(0) + noise_level * torch.randn(
-        (steps, num_trials, max_item_num), device=device
+    theta_noisy = theta + noise_level * torch.randn(
+        (num_trials, max_item_num), device=device
     )
     theta_noisy = (theta_noisy + torch.pi) % (2 * torch.pi) - torch.pi
 
     # Compute the 2D positions (cos and sin components) for all items
-    cos_theta = torch.cos(theta_noisy)  # (steps, num_trials, max_item_num)
-    sin_theta = torch.sin(theta_noisy)  # (steps, num_trials, max_item_num)
+    cos_theta = torch.cos(theta_noisy)  # (num_trials, max_item_num)
+    sin_theta = torch.sin(theta_noisy)  # (num_trials, max_item_num)
 
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
@@ -53,12 +53,12 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
                     1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
                     1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
                     1 - 2 * sin_theta / sqrt(6),
-                ), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 3)
+                ), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 3)
     else:
-        u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(0).unsqueeze(-1) # (steps, num_trials, max_item_num, 2)
+        u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 2)
 
     # Reshape to match output shape (combine cos and sin into one dimension)
-    u_0 = u_0.view(steps, num_trials, -1)  # (steps, num_trials, 2 * max_item_num)
+    u_0 = u_0.view(num_trials, -1)  # (num_trials, 3 * max_item_num)
 
     # Create a mask for stimuli presence at each time step
     stimuli_present_mask = (torch.arange(steps, device=device) * dt >= T_init) & \
@@ -66,9 +66,9 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     stimuli_present_mask = stimuli_present_mask.float().unsqueeze(-1).unsqueeze(-1)  # (steps, 1, 1)
 
     # Apply the stimuli mask
-    u_t_stack = u_0 * stimuli_present_mask  # (steps, num_trials, 2 * max_item_num)
+    u_t_stack = u_0.unsqueeze(0) * stimuli_present_mask  # (steps, num_trials, 3 * max_item_num)
 
-    # Swap dimensions 0 and 1 to get (num_trials, steps, 2 * max_item_num)
+    # Swap dimensions 0 and 1 to get (num_trials, steps, 3 * max_item_num)
     u_t_stack = u_t_stack.transpose(0, 1)
 
     return u_t_stack
