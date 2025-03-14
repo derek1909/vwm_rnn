@@ -190,6 +190,8 @@ def train(model, model_dir, history=None):
 
             if model.positive_input:
                 model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
+            if model.dales_law:
+                model.W.data = F.relu(model.W.data)  # Ensure raw W is non-negative if dales law is applied.
 
             # Append errors and activs to the history buffers
             error_buffer.append(mean_eval_error.item())

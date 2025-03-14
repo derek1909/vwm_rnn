@@ -36,6 +36,7 @@ ILC_noise = model_params["ILC_noise"] # rad
 spike_noise_factor = model_params["spike_noise_factor"] # Hz
 decode_noise = model_params["decode_noise"]
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
+dales_law = model_params["dales_law"]
 T_init = model_params["T_init"]
 T_stimi = model_params["T_stimi"]
 T_delay = model_params["T_delay"]
