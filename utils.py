@@ -335,19 +335,27 @@ def plot_weights(model):
 
     print(f"All weight matrices plot saved at: {save_path}")
 
+from scipy.stats import gaussian_kde
 def plot_error_dist(model):
     """
     Plot the distribution of decoding errors for different item numbers after training.
     This function visualizes the model's performance by comparing decoded angles with input angles.
     """
-    num_trials = 3000
-    item_num = [8,4,2,1]
+
+    if max_item_num < 8:
+        print("The model supports less than 8 items. Skipping error distribution plot.")
+        return
+    else:
+        num_trials = 5000
+        item_num = [8, 4, 2, 1]
+
     # Split num_trials into len(item_num) groups
     trials_per_group = num_trials // len(item_num)
     remaining_trials = num_trials % len(item_num)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
     
     # Generate random presence indicators
+    device = next(model.parameters()).device  # Use model device
     input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=False)
     start_index = 0
     for i, count in enumerate(trial_counts):
@@ -379,18 +387,24 @@ def plot_error_dist(model):
     decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (steps, trials, max_items)
     angular_diff = (input_thetas - decoded_thetas.mean(dim=0) + torch.pi) % (2 * torch.pi) - torch.pi  # (trials,items)
 
-
     # Plot error distribution
     plt.figure(figsize=(6, 5))
-    bins = np.linspace(-np.pi, np.pi, 60)
+    x_values = np.linspace(-np.pi, np.pi, 500)
     
     start_index = 0
     for i, count in enumerate(trial_counts):
         end_index = start_index + count
-        mask = (input_presence[start_index:end_index].bool())
+        mask = input_presence[start_index:end_index].bool()
         sliced_angular_diff = angular_diff[start_index:end_index]
         err = sliced_angular_diff[mask].detach().cpu().numpy()
-        plt.hist(err, bins=bins, alpha=0.5, label=f'{item_num[i]} item(s)',density=True)
+        
+        if len(err) > 1:  # Ensure there is enough data for KDE
+            kde = gaussian_kde(err)
+            density = kde(x_values)
+            plt.plot(x_values, density, label=f'{item_num[i]} item(s)')
+        else:
+            print(f"Not enough data to plot KDE for group with {item_num[i]} item(s).")
+
         start_index = end_index
     
     plt.xlim(-np.pi, np.pi)
@@ -401,8 +415,11 @@ def plot_error_dist(model):
     plt.ylabel('Probability Density')
     plt.legend()
     plt.title('Distribution of Decoding Errors')
+    plt.ylim(bottom=0)
     
     # Save the plot
-    file_path = os.path.join(model_dir, f'error_distrib.png')
+    file_path = os.path.join(model_dir, 'error_distrib.png')
     plt.savefig(file_path, dpi=300)
     plt.close()
+
+    print(f"Error Distribution Plot saved at: {file_path}")
