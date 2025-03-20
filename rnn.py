@@ -107,7 +107,7 @@ class RNNMemoryModel(nn.Module):
             
             # Add Poisson-like noise to the firing rate r
             observed_r = F.relu(
-                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.dt) * torch.randn_like(r, device=self.device),
+                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.dt + 1e-10) * torch.randn_like(r, device=self.device),
             )
 
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
@@ -127,7 +127,7 @@ def decode(F, r):
     Decodes the input firing rates (r) into a normalized output representation.
 
     Args:
-        F : Decoding weight matrix of shape (input_size, hidden_size) = (2*max_item_num, num_neurons)
+        F : Decoding weight matrix of shape (output_size, hidden_size) = (2*max_item_num, num_neurons)
         r : Firing rate matrix of shape (num_trials, num_neurons)
 
     Returns:
