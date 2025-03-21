@@ -65,7 +65,7 @@ def calc_eval_error(u_hat, target_thetas, presence):
 
     return mean_ang_error, var_ang_error
 
-def error_calc(F, r_stack, target_thetas, presence, train_err=True):
+def error_calc(model, r_stack, target_thetas, presence, train_err=True):
     """
     Calculates training error, evaluation error, and activation penalty.
 
@@ -88,7 +88,7 @@ def error_calc(F, r_stack, target_thetas, presence, train_err=True):
     step_threshold = int((T_init + T_stimi + T_delay) / dt)
     r_decode = r_stack[step_threshold:, :, :]
     num_steps, num_trials, num_neurons = r_decode.shape
-    u_hat = decode(F, r_decode.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
+    u_hat = model.decode(r_decode.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
 
     # Generate target outputs (ground truth for training loss)
     u_0 = generate_target(presence, target_thetas, stimuli_present=True)
@@ -179,7 +179,7 @@ def train(model, model_dir, history=None):
             r_output_T = r_output.transpose(0, 1)  # (steps, trial, neuron)
 
             # Calculate total loss
-            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model.F, r_output_T, input_thetas, input_presence, train_err=True)
+            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model, r_output_T, input_thetas, input_presence, train_err=True)
             total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
             
             optimizer.zero_grad()
@@ -201,7 +201,7 @@ def train(model, model_dir, history=None):
             start_index = 0
             for i, count in enumerate(trial_counts):
                 end_index = start_index + count
-                _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(model.F, 
+                _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(model, 
                                     r_output_T[:, start_index:end_index], 
                                     input_thetas[start_index:end_index], 
                                     input_presence[start_index:end_index], 

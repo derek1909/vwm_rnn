@@ -378,7 +378,7 @@ def plot_error_dist(model):
     r_decode = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
     
     # Decode the output
-    u_hat = decode(model.F, r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
+    u_hat = model.decode(r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
     u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
     
     # Compute angles diff

@@ -25,7 +25,7 @@ class RNNMemoryModel(nn.Module):
             # Create a vector with +1 for excitatory and -1 for inhibitory neurons.
             dales_sign = torch.cat([torch.ones(num_excitatory), -torch.ones(num_neurons - num_excitatory)]).to(device)
         else:
-            # When Dale's law is disabled, use a vector of zeros.
+            # When Dale's law is disabled, use a vector of ones.
             dales_sign = torch.ones(num_neurons, device=device)
 
         self.register_buffer('dales_sign', dales_sign)
@@ -73,7 +73,20 @@ class RNNMemoryModel(nn.Module):
             Tensor with same shape as x.
         """
         return 8 * (1 + torch.tanh(0.4 * x - 3))
+    
+    def observed_r(self, r: torch.Tensor) -> torch.Tensor:
+        """
+        Applies poisson-like noise to the firing rate and ensures non-negative values.
 
+        Args:
+            r: (batch_size, neuron) - firing rate.
+
+        Returns:
+            Tensor with same shape as r, after adding noise and applying ReLU.
+        """
+        poisson_like_noise = self.spike_noise_factor * torch.sqrt(r * 1e3 / self.dt + 1e-10) * torch.randn_like(r, device=self.device)
+        return F.relu(r + poisson_like_noise)
+    
     def forward(self, u, r0=None):
         """
         Args:
@@ -104,14 +117,9 @@ class RNNMemoryModel(nn.Module):
             assert torch.all(torch.isfinite(r)), "NaN or Inf detected in r!"
 
             u_t = u[:, t, :]  # Current input at time step t: (batch_size, input_size)
-            
-            # Add Poisson-like noise to the firing rate r
-            observed_r = F.relu(
-                r + self.spike_noise_factor * torch.sqrt(r*1e3/self.dt + 1e-10) * torch.randn_like(r, device=self.device),
-            )
 
             # RNN dynamics: τ * dr/dt + r = Φ(W * r + B * u)
-            r_dot = (-r + self.activation_function(effective_W @ observed_r.T + self.B @ u_t.T).T) / self.tau
+            r_dot = (-r + self.activation_function(effective_W @ self.observed_r(r).T + self.B @ u_t.T).T) / self.tau
             
             # Update firing rate with Euler integration
             r = r + self.dt * r_dot
@@ -121,24 +129,23 @@ class RNNMemoryModel(nn.Module):
 
         # Return all hidden states and the final hidden state
         return r_output, r.unsqueeze(0)
-
-def decode(F, r):
-    """
-    Decodes the input firing rates (r) into a normalized output representation.
-
-    Args:
-        F : Decoding weight matrix of shape (output_size, hidden_size) = (2*max_item_num, num_neurons)
-        r : Firing rate matrix of shape (num_trials, num_neurons)
-
-    Returns:
-        torch.Tensor: (num_trials, input_size)
-    """
-    # (num_trials, input_size/2, 2)
-    u_hat = (F @ r.T).T.view(r.size(0), -1, 2)
     
-    # Normalize the 2D representation of u_hat across the last dimension.
-    normalized_u_hat = u_hat / torch.norm(u_hat, dim=2, keepdim=True)
-    
-    # Reshape normalized_u_hat into a flat representation.
-    # (num_trials, input_size)
-    return normalized_u_hat.view(r.size(0), -1)
+    def decode(self, r: torch.Tensor) -> torch.Tensor:
+        """
+        Decodes the input firing rates (r) into a normalized output representation using observed_r.
+
+        Args:
+            r : Firing rate matrix of shape (num_trials, num_neurons)
+        
+        Returns:
+            torch.Tensor: Decoded output of shape (num_trials, input_size) where input_size = (max_item_num * 2)
+        """
+        # (num_trials, input_size/2, 2)
+        u_hat = (self.F @ self.observed_r(r).T).T.view(r.size(0), -1, 2)
+        
+        # Normalize the 2D representation of u_hat across the last dimension.
+        normalized_u_hat = u_hat / torch.norm(u_hat, dim=2, keepdim=True)
+        
+        # Reshape normalized_u_hat into a flat representation.
+        # (num_trials, input_size)
+        return normalized_u_hat.view(r.size(0), -1)
