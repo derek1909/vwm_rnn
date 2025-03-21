@@ -114,7 +114,7 @@ class RNNMemoryModel(nn.Module):
             r_dot = (-r + self.activation_function(effective_W @ observed_r.T + self.B @ u_t.T).T) / self.tau
             
             # Update firing rate with Euler integration
-            r = F.relu(r + self.dt * r_dot)
+            r = r + self.dt * r_dot
             
             # Store the firing rate for this time step
             r_output[:, t, :] = r
