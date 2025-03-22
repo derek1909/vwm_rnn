@@ -159,9 +159,8 @@ def train(model, model_dir, history=None):
                 input_presence = input_presence_temp
                 start_index = end_index
 
-            # Update input_thetas every 20 epochs
-            if (epoch % 20 == 0) or (epoch==start_epoch):
-                input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
+            # Update input_thetas every grad step
+            input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
 
             # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
             u_t = generate_input(
