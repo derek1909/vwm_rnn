@@ -74,8 +74,8 @@ def fixed_points_finder(model, epoch=None):
     """
     Simulate the RNN to collect hidden states and find fixed points.
     """
-    np.random.seed(42)
-    torch.manual_seed(42)
+    np.random.seed(40)
+    torch.manual_seed(40)
 
     ## Simulate to collect hidden states ##
     # u_t: (trials, steps, neurons)
@@ -98,3 +98,183 @@ def fixed_points_finder(model, epoch=None):
             pca_dir = f'{model_dir}/pca',
             epoch=epoch,
         )
+
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import math
+import yaml
+from scipy.stats import chi2
+def SNR_analysis(model):
+    # Prepare the states
+    u_t, r_output, thetas = prepare_state_snr(model)
+    
+    # 1. Get true orientation from the first trial and convert to a 2D point (unit circle)
+    true_orientation = thetas[0, 0].item()
+    true_point = [math.cos(true_orientation), math.sin(true_orientation)]
+    
+    step_threshold = int((T_init + T_stimi + T_delay) / dt)
+    r_decode = r_output[:, step_threshold:, :].detach().numpy()  # (trials, steps, neuron)
+    F = model.F.detach().cpu().numpy().squeeze()  # (max_item_num*2, neurons)
+    
+    # Decode points from the network (we only take the first 2 components)
+    decode_points = (r_decode @ F.T)[:, :, :2]  # (trials, steps, 2)
+
+    # 2. Calculate average signal: mean over both trials and steps (result is a 2D point)
+    signal = decode_points.mean(axis=(0, 1))  # (2,)
+    
+    # 3. Calculate error: each decoded point minus the signal
+    error = decode_points - signal  # (trials, steps, 2)
+    
+    # 4. Time averaged error: average error over steps for each trial
+    time_avg_error = error.mean(axis=1)  # (trials, 2)
+    
+    # 5. Noise 1: flatten error (over both trials and steps) and compute Gaussian parameters
+    error_flat = error.reshape(-1, 2)  # shape (trials*steps, 2)
+    noise1_mean = error_flat.mean(axis=0)
+    noise1_cov = np.cov(error_flat, rowvar=False)
+    noise1_power = np.trace(noise1_cov)
+    
+    # 6. Noise 2: flatten the time averaged error (over trials) and compute Gaussian parameters
+    noise2_mean = time_avg_error.mean(axis=0)
+    noise2_cov = np.cov(time_avg_error, rowvar=False)
+    noise2_power = np.trace(noise2_cov)
+    
+    # 7. Signal magnitude: the Euclidean norm of the signal vector
+    signal_mag = np.linalg.norm(signal)
+    
+    # 8. SNR calculations: using the trace of the covariance as noise power
+    SNR1 = (signal_mag ** 2) / noise1_power if noise1_power != 0 else np.inf
+    SNR2 = (signal_mag ** 2) / noise2_power if noise2_power != 0 else np.inf
+
+    # Convert SNR to dB
+    SNR1_dB = 10 * np.log10(SNR1) if SNR1 not in [0, np.inf] else SNR1
+    SNR2_dB = 10 * np.log10(SNR2) if SNR2 not in [0, np.inf] else SNR2
+    '''
+    Power of noise is to be carefully re-defined. Maybe only take certain direction.
+    '''
+
+    # Directory to save results
+    snr_dir = f'{model_dir}/snr'
+    if not os.path.exists(snr_dir):
+        os.makedirs(snr_dir)
+    
+    # -------- Plot 1: Non Time Averaged --------
+    plt.figure(figsize=(8, 6))
+    # Scatter plot of all decoded points (flatten trials and steps)
+    plt.scatter(decode_points[..., 0].flatten(), decode_points[..., 1].flatten(),
+                label='Decoded Points', marker=',', s=3, alpha=0.5)
+    
+    # Both lines (true orientation and signal) are drawn with length equal to signal magnitude
+    true_line_end = [math.cos(true_orientation) * signal_mag,
+                     math.sin(true_orientation) * signal_mag]
+    plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
+             color='red', label='True Orientation', linestyle='-', linewidth=1.5)
+    plt.plot([0, signal[0]], [0, signal[1]],
+             color='green', label='Signal (Mean)', linestyle='-', linewidth=2)
+    
+    # Draw an ellipse to indicate Gaussian noise 1 (non-time-averaged)
+    eigenvals1, eigenvecs1 = np.linalg.eig(noise1_cov)
+    order1 = eigenvals1.argsort()[::-1]
+    eigenvals1 = eigenvals1[order1]
+    eigenvecs1 = eigenvecs1[:, order1]
+    angle1 = np.degrees(np.arctan2(eigenvecs1[1, 0], eigenvecs1[0, 0]))
+    chi2_val1 = chi2.ppf(0.95, 2)  # 95% confidence region, 2 sigma
+    width1, height1 = 2 * np.sqrt(eigenvals1 * chi2_val1)
+    ellipse1 = patches.Ellipse(xy=signal, width=width1, height=height1,
+                               angle=angle1, edgecolor='purple', fc='None', lw=2,
+                               label='Noise Ellipse')
+    plt.gca().add_patch(ellipse1)
+    
+    # Add text annotations in the upper left corner
+    textstr1 = '\n'.join((
+        f'Signal Strength: {signal_mag:.2f}',
+        f'Noise Strength: {noise1_power:.2f}',
+        f'SNR: {SNR1_dB:.2f} dB'))
+    plt.gca().text(0.05, 0.05, textstr1, transform=plt.gca().transAxes, fontsize=8,
+                   verticalalignment='bottom', bbox=dict(facecolor='white', alpha=0.5))
+    
+    plt.axhline(0, color='black', linewidth=1, linestyle='-')
+    plt.axvline(0, color='black', linewidth=1, linestyle='-')
+    plt.xlabel('Component 1')
+    plt.ylabel('Component 2')
+    plt.title('SNR - Non Time Averaged')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+    
+    image_path1 = f'{snr_dir}/non_time_averaged.png'
+    plt.savefig(image_path1, dpi=300)
+    plt.close()
+    
+    # -------- Plot 2: Time Averaged --------
+    # Average decoded points over time steps for each trial
+    decode_points_time = decode_points.mean(axis=1)  # (trials, 2)
+    
+    plt.figure(figsize=(8, 6))
+    plt.scatter(decode_points_time[:, 0], decode_points_time[:, 1],
+                label='Time Averaged Decoded Points', marker='o', s=10, alpha=0.7)
+    
+    # Draw lines for true orientation and signal using the norm of the time averaged signal
+    plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
+             color='red', label='True Orientation', linestyle='-', linewidth=1.5)
+    plt.plot([0, signal[0]], [0, signal[1]],
+             color='green', label='Signal (Mean)', linestyle='-', linewidth=2)
+    
+    # Draw an ellipse to indicate Gaussian noise (time-averaged)
+    eigenvals2, eigenvecs2 = np.linalg.eig(noise2_cov)
+    order2 = eigenvals2.argsort()[::-1]
+    eigenvals2 = eigenvals2[order2]
+    eigenvecs2 = eigenvecs2[:, order2]
+    angle2 = np.degrees(np.arctan2(eigenvecs2[1, 0], eigenvecs2[0, 0]))
+    chi2_val2 = chi2.ppf(0.95, 2)
+    width2, height2 = 2 * np.sqrt(eigenvals2 * chi2_val2)
+    ellipse2 = patches.Ellipse(xy=signal, width=width2, height=height2,
+                               angle=angle2, edgecolor='purple', fc='None', lw=2,
+                               label='Noise Ellipse')
+    plt.gca().add_patch(ellipse2)
+    
+    # Add text annotations for time-averaged data
+    textstr2 = '\n'.join((
+        f'Signal Strength: {signal_mag:.2f}',
+        f'Noise Strength: {noise2_power:.2f}',
+        f'SNR: {SNR2_dB:.2f} dB'))
+    plt.gca().text(0.05, 0.05, textstr2, transform=plt.gca().transAxes, fontsize=8,
+                   verticalalignment='bottom', bbox=dict(facecolor='white', alpha=0.5))
+    
+    plt.axhline(0, color='black', linewidth=1, linestyle='-')
+    plt.axvline(0, color='black', linewidth=1, linestyle='-')
+    plt.xlabel('Component 1')
+    plt.ylabel('Component 2')
+    plt.title('SNR - Time Averaged')
+    plt.legend()
+    plt.grid(True, linestyle='--', alpha=0.6)
+    
+    image_path2 = f'{snr_dir}/time_averaged.png'
+    plt.savefig(image_path2, dpi=300)
+    plt.close()
+    
+    # -------- Save results to a YAML file --------
+    results = {
+        'true_orientation': true_orientation,
+        'true_point': true_point,
+        'signal': signal.tolist(),
+        'signal_magnitude': signal_mag.item(),
+        'noise1': {
+            'mean': noise1_mean.tolist(),
+            'covariance': noise1_cov.tolist(),
+            'power': noise1_power.item(),
+        },
+        'noise2': {
+            'mean': noise2_mean.tolist(),
+            'covariance': noise2_cov.tolist(),
+            'power': noise2_power.item(),
+        },
+        'SNR1': SNR1.item(),
+        'SNR2': SNR2.item(),
+        'SNR1_dB': SNR1_dB if SNR1_dB in [np.inf, -np.inf] else float(SNR1_dB),
+        'SNR2_dB': SNR2_dB if SNR2_dB in [np.inf, -np.inf] else float(SNR2_dB),
+    }
+    yaml_path = f'{snr_dir}/results.yaml'
+    with open(yaml_path, 'w') as f:
+        yaml.dump(results, f)

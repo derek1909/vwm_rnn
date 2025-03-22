@@ -384,7 +384,7 @@ def plot_123d(ax, z, **kwargs):
         raise ValueError("z should have 1, 2, or 3 columns corresponding to 1D, 2D, or 3D data.")
     
 def prepare_state(model):
-    fpf_item_num = [1]
+    fpf_item_num = [2]
     # Generate presence for each group
     input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
     trials_per_group = fpf_trials // len(fpf_item_num)  
@@ -409,6 +409,46 @@ def prepare_state(model):
         shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
         # Concatenate the first item (unique per trial) with the shared items (same for all trials)
         input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
+
+    u_t = generate_input(
+        presence=input_presence,
+        theta=input_thetas,
+        noise_level=0.0,
+        T_init=T_init,
+        T_stimi=T_stimi,
+        T_delay=T_delay,
+        T_decode=T_decode,
+        dt=dt,
+    )
+    
+    r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
+
+    return u_t.detach().cpu(), r_output.detach().cpu(), input_thetas.detach().cpu()
+
+    
+def prepare_state_snr(model):
+    snr_item_num = 2
+    snr_trial_num = 200 # i.e. repeated times of the same 
+    
+    np.random.seed(39)
+    torch.manual_seed(39)
+
+    input_presence = torch.zeros(max_item_num, device=device)
+    input_presence[0] = 1  # Always include the first item
+
+    if snr_item_num > 1:
+        # Sample the remaining indices from 1 to max_item_num-1
+        random_indices = torch.randperm(max_item_num - 1, device=device)[:(snr_item_num - 1)] + 1
+        input_presence[random_indices.tolist()] = 1
+        
+    input_thetas = (torch.rand(max_item_num , device=device) * 2 * torch.pi) - torch.pi
+
+    print(f"SNR theta: {input_thetas}")
+    print(f"SNR presence: {input_presence}")
+
+    # repeat same input snr_trial_num times，
+    input_presence = input_presence.repeat(snr_trial_num, 1)
+    input_thetas = input_thetas.repeat(snr_trial_num, 1)
 
     u_t = generate_input(
         presence=input_presence,

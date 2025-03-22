@@ -29,6 +29,7 @@ model_and_logging_params:
   rnn_name: "Observed_r_constNoise"
   cuda_device: 1
   error_dist_bool: true
+  SNR_analy_bool: false
 
 fpf_params:
   fpf_bool: true

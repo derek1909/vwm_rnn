@@ -1,13 +1,13 @@
 # import torch
 # import os
 # import json
-import argparse
+# import argparse
 
 from rnn import *
 from config import *
 from train import *
 from utils import *
-from fixedpoint import fixed_points_finder
+from fixedpoint import fixed_points_finder, SNR_analysis
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, dt, spike_noise_factor, device=device, positive_input=positive_input, dales_law=dales_law)
@@ -23,6 +23,10 @@ if __name__ == "__main__":
         history = train(model, model_dir, history)
     plot_weights(model)
 
+    # Plot error distribution plots
+    if error_dist_bool:
+        plot_error_dist(model)
+
     # Plot training curves
     if history:
         plot_group_training_history(history["epochs"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
@@ -31,8 +35,6 @@ if __name__ == "__main__":
         print(f"Running final Fixed Point Analysis...")
         fixed_points_finder(model)
 
-    # Plot training curves
-    if error_dist_bool:
-        plot_error_dist(model)
-
-    # plt.show()
+    if SNR_analy_bool:
+        print(f"Running Signal to Noise Ratio Analysis...")
+        SNR_analysis(model)
