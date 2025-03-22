@@ -342,11 +342,17 @@ def plot_error_dist(model):
     This function visualizes the model's performance by comparing decoded angles with input angles.
     """
 
-    if max_item_num < 8:
-        print("The model supports less than 8 items. Skipping error distribution plot.")
-        return
+    if max_item_num == 1:
+        num_trials = 1000
+        item_num = [1]
+    elif max_item_num == 2:
+        num_trials = 2000
+        item_num = [1,2]
+    elif max_item_num < 8:
+        num_trials = 4000
+        item_num = list(range(1, max_item_num+1, 2))
     else:
-        num_trials = 5000
+        num_trials = 8000
         item_num = [8, 4, 2, 1]
 
     # Split num_trials into len(item_num) groups
