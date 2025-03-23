@@ -15,7 +15,7 @@ model_params:
 training_params:
   train_rnn: true
   load_history: false
-  num_epochs: 50000
+  num_iterations: 50000
   eta: 0.0001
   lambda_reg: 1.0
   lambda_err: 1.0

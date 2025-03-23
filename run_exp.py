@@ -71,10 +71,10 @@ def collect_results(exp_dir, para_name):
                 history = yaml.safe_load(f)
                 
             final_results[para] = {
-                'final_epoch': history['epochs'][-1],
-                'final_error': history['error_per_epoch'][-1],
-                'final_error_std': history['error_std_per_epoch'][-1],
-                'final_activation': history['activation_per_epoch'][-1],
+                'final_iteration': history['iterations'][-1],
+                'final_error': history['error_per_iteration'][-1],
+                'final_error_std': history['error_std_per_iteration'][-1],
+                'final_activation': history['activation_per_iteration'][-1],
                 'group_errors': [errors[-1] for errors in history['group_errors']],
                 'group_std': [std[-1] for std in history['group_std']],
                 'group_activ': [activ[-1] for activ in history['group_activ']]

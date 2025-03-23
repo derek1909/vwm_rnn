@@ -111,19 +111,19 @@ def train(model, model_dir, history=None):
     # If no history is provided, initialize empty history
     if history is None:
         history = {
-            "error_per_epoch": [],  # Overall mean error per epoch
-            "error_std_per_epoch": [],  # std of overall error per epoch
-            "activation_per_epoch": [],
+            "error_per_iteration": [],  # Overall mean error per iteration
+            "error_std_per_iteration": [],  # std of overall error per iteration
+            "activation_per_iteration": [],
             "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
             "group_std": [[] for _ in item_num],  # List to store std of errors for each group
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
-            "epochs": [],
+            "iterations": [],
             "lr": [],
         }
-        start_epoch = 0
+        start_iteration = 0
         start_lr = eta
     else:
-        start_epoch = history['epochs'][-1]
+        start_iteration = history['iterations'][-1]
         start_lr = history["lr"][-1]
         
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
@@ -144,8 +144,8 @@ def train(model, model_dir, history=None):
     # Adjust trials count for each group (distribute leftovers)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
 
-    with tqdm(total=num_epochs, initial=start_epoch, desc="Training Progress", unit="epoch") as pbar_epoch:
-        for epoch in range(start_epoch, num_epochs):
+    with tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") as pbar_iteration:
+        for iteration in range(start_iteration, num_iterations):
             # Generate presence for each group
             input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
             start_index = 0
@@ -212,13 +212,13 @@ def train(model, model_dir, history=None):
 
                 start_index = end_index
 
-            if epoch % logging_period == 0:
+            if iteration % logging_period == 0:
 
                 # Calculate averages for buffers and store in history
-                history["error_per_epoch"].append(sum(error_buffer) / len(error_buffer))
-                history["error_std_per_epoch"].append(sum(error_std_buffer) / len(error_std_buffer))
-                history["activation_per_epoch"].append(sum(activation_buffer) / len(activation_buffer))
-                history["epochs"].append(epoch)
+                history["error_per_iteration"].append(sum(error_buffer) / len(error_buffer))
+                history["error_std_per_iteration"].append(sum(error_std_buffer) / len(error_std_buffer))
+                history["activation_per_iteration"].append(sum(activation_buffer) / len(activation_buffer))
+                history["iterations"].append(iteration)
                 history["lr"].append(scheduler.get_last_lr()[0])
 
                 for i in range(len(group_error_buffers)):
@@ -237,24 +237,19 @@ def train(model, model_dir, history=None):
                         group_activ_buffers[i].clear()
 
                 # Update progress bar
-                pbar_epoch.set_postfix({
-                    "Error": f"{history['error_per_epoch'][-1]:.4f}rad",
-                    "Activ": f"{history['activation_per_epoch'][-1]:.4f}Hz",
+                pbar_iteration.set_postfix({
+                    "Error": f"{history['error_per_iteration'][-1]:.4f}rad",
+                    "Activ": f"{history['activation_per_iteration'][-1]:.4f}Hz",
                     "lr": f"{scheduler.get_last_lr()}",
                     "PatienceCnt": earlystop_counter,
                 })
-                pbar_epoch.update(logging_period)
+                pbar_iteration.update(logging_period)
 
-                # Save model and history every logging_period epochs
+                # Save model and history every logging_period iterations
                 os.makedirs(f'{model_dir}/models', exist_ok=True)
                 save_model_and_history(model, history, 
                                     model_dir,
-                                    model_name=f'model_epoch{epoch}.pth')
-
-            # if fpf_bool and (fpf_period>0) and (epoch%fpf_period==0) and (total_loss>0.03):
-            #     cloned_model = RNNMemoryModel(max_item_num, num_neurons, tau, dt, process_noise, device=device, positive_input=positive_input)
-            #     cloned_model.load_state_dict(model.state_dict())  # Copy weights
-            #     fixed_points_finder(cloned_model, epoch=epoch)
+                                    model_name=f'model_iteration{iteration}.pth')
 
             if early_stopping.early_stop:
                 print("Early stopping")

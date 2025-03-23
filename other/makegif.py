@@ -11,14 +11,14 @@ output_gif_path = f"{folder_path}.gif"
 # Get all PNG files in the folder
 png_files = [file for file in os.listdir(folder_path) if file.endswith(".png")]
 
-# Sort files by extracting the 'epoch_{epoch}' number
-def extract_epoch(filename):
-    match = re.search(r'epoch_(\d+)', filename)
+# Sort files by extracting the 'iteration_{iteration}' number
+def extract_iteration(filename):
+    match = re.search(r'iteration_(\d+)', filename)
     if match:
         return int(match.group(1))
-    return float('inf')  # If no epoch number is found, place it at the end
+    return float('inf')  # If no iteration number is found, place it at the end
 
-png_files_sorted = sorted(png_files, key=extract_epoch)
+png_files_sorted = sorted(png_files, key=extract_iteration)
 
 # Read and collect images
 images = []

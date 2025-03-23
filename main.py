@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     # Plot training curves
     if history:
-        plot_group_training_history(history["epochs"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
+        plot_group_training_history(history["iterations"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
 
     if fpf_bool:
         print(f"Running final Fixed Point Analysis...")

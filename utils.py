@@ -96,26 +96,26 @@ def plot_results(decoded_orientations_dict):
     plt.legend(handles=[stimulus_period_legend, decode_period_legend, response_legend, target_legend], loc='upper right')
     # plt.show()
 
-def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_epoch):
+def plot_training_history(error_per_iteration, error_std_per_iteration, activation_per_iteration):
     """
     Plots training curves for error (with error bar) and activation penalty.
     """
     # Create figure and axes
     fig, ax1 = plt.subplots(figsize=(5, 4))
-    epochs = np.arange(1, len(error_per_epoch) + 1)
+    iterations = np.arange(1, len(error_per_iteration) + 1)
 
     # Plot Error curve on the left y-axis with error bars
     error_color = 'blue'
-    ax1.plot(epochs, error_per_epoch, label="Error", color=error_color, marker='o', markersize=2)
+    ax1.plot(iterations, error_per_iteration, label="Error", color=error_color, marker='o', markersize=2)
     ax1.fill_between(
-        epochs,
-        np.array(error_per_epoch) - np.array(error_std_per_epoch),
-        np.array(error_per_epoch) + np.array(error_std_per_epoch),
+        iterations,
+        np.array(error_per_iteration) - np.array(error_std_per_iteration),
+        np.array(error_per_iteration) + np.array(error_std_per_iteration),
         color=error_color,
         alpha=0.2,
         label="Error (± std)"
     )
-    ax1.set_xlabel('Epoch')
+    ax1.set_xlabel('iteration')
     ax1.set_ylabel('Error Loss', color=error_color)
     ax1.tick_params(axis='y', labelcolor=error_color)
     # ax1.set_yscale('log')
@@ -123,10 +123,10 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     ax1.grid(True)
 
     # Calculate and annotate the average of the last 50 Error values
-    ax1.axhline(y=error_per_epoch[-1], color=error_color, linestyle='--', alpha=0.7)
+    ax1.axhline(y=error_per_iteration[-1], color=error_color, linestyle='--', alpha=0.7)
     ax1.annotate(
-        f"{error_per_epoch[-1]:.3f}",  # Format the annotation to 3 decimal places
-        xy=(epochs[-1], error_per_epoch[-1]),  # Position it at the last epoch's error value
+        f"{error_per_iteration[-1]:.3f}",  # Format the annotation to 3 decimal places
+        xy=(iterations[-1], error_per_iteration[-1]),  # Position it at the last iteration's error value
         xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
         color=error_color, fontsize=9, fontweight="bold"
     )
@@ -134,35 +134,35 @@ def plot_training_history(error_per_epoch, error_std_per_epoch, activation_per_e
     # Create a second y-axis for Activation Penalty
     activation_color = 'orange'
     ax2 = ax1.twinx()
-    ax2.plot(epochs, activation_per_epoch, label="Activation", color=activation_color, marker='o', markersize=2)
+    ax2.plot(iterations, activation_per_iteration, label="Activation", color=activation_color, marker='o', markersize=2)
     ax2.set_ylabel('Ave Firing Rate (Hz)', color=activation_color)
     ax2.tick_params(axis='y', labelcolor=activation_color)
 
     # Calculate and annotate the average of the last 50 Activation Penalty values
-    ax2.axhline(y=activation_per_epoch[-1], color=activation_color, linestyle='--', alpha=0.7)
+    ax2.axhline(y=activation_per_iteration[-1], color=activation_color, linestyle='--', alpha=0.7)
     ax2.annotate(
-        f"{activation_per_epoch[-1]:.3f}Hz",  # Format the annotation to 3 decimal places
-        xy=(epochs[-1], activation_per_epoch[-1]),  # Position it at the last epoch's error value
+        f"{activation_per_iteration[-1]:.3f}Hz",  # Format the annotation to 3 decimal places
+        xy=(iterations[-1], activation_per_iteration[-1]),  # Position it at the last iteration's error value
         xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
         color=activation_color, fontsize=9, fontweight="bold"
     )
     
-    plt.title('Training Error and Activation vs Epoch')
+    plt.title('Training Error and Activation vs Iteration')
     fig.tight_layout()
     # plt.show()
 
-def plot_group_training_history(epochs, group_errors, group_stds, group_activ, item_num, logging_period):
+def plot_group_training_history(iterations, group_errors, group_stds, group_activ, item_num, logging_period):
     """
-    Plots the error and error bars for each group across epochs, with each group in a separate subplot,
+    Plots the error and error bars for each group across iterations, with each group in a separate subplot,
     and annotates the end value for each group.
 
     Parameters:
-    - epochs: epch number
-    - group_errors: List of lists, where each sublist contains mean errors for a group over epochs.
-    - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over epochs.
-    - group_activ: List of lists, where each sublist contains average activation penalties for a group over epochs.
+    - iterations: epch number
+    - group_errors: List of lists, where each sublist contains mean errors for a group over iterations.
+    - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over iterations.
+    - group_activ: List of lists, where each sublist contains average activation penalties for a group over iterations.
     - item_num: List of the number of items in each group (e.g., [1, 2, 3, 4] for 4 groups).
-    - logging_period: The interval of epochs at which the errors are recorded.
+    - logging_period: The interval of iterations at which the errors are recorded.
     """
     num_groups = len(group_errors)
 
@@ -182,14 +182,14 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
 
         # Plot errors
         line_error, = axes[i].plot(
-            epochs, errors, 
+            iterations, errors, 
             label="Error",
             color=err_color,
             # marker='o', markersize=3
         )
         # Plot error bars
         axes[i].fill_between(
-            epochs,
+            iterations,
             errors - stds,
             errors + stds,
             color=err_color,
@@ -198,7 +198,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         )
 
         axes[i].set_ylabel("Absolute Error (rad)",color=err_color)
-        axes[i].set_title(f"{item_num[i]} item. Loss and Activation vs Epoch")
+        axes[i].set_title(f"{item_num[i]} item. Loss and Activation vs Iteration")
         axes[i].tick_params(axis='y', labelcolor=err_color)
         axes[i].grid(True)
         axes[i].set_ylim(0, 2)
@@ -207,7 +207,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         # Plot activations
         ax2 = axes[i].twinx()
         line_activ, = ax2.plot(
-            epochs, activ,
+            iterations, activ,
             label="Activation",
             color=activ_color,
             # marker='o', markersize=
@@ -218,7 +218,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         # Add the end value annotation for activation
         ax2.annotate(
             f"{activ[-1]:.3f} Hz",  # Format the annotation to 3 decimal places
-            xy=(epochs[-1], activ[-1]),  # Position it at the last epoch's error value
+            xy=(iterations[-1], activ[-1]),  # Position it at the last iteration's error value
             xytext=(-20, -20), textcoords="offset points",  # Offset slightly for clarity
             color=activ_color, fontsize=10, fontweight="bold",
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
@@ -226,7 +226,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
         # Add the end value annotation
         axes[i].annotate(
             f"{errors[-1]:.3f} rad",  # Format the annotation to 3 decimal places
-            xy=(epochs[-1], errors[-1]),  # Position it at the last epoch's error value
+            xy=(iterations[-1], errors[-1]),  # Position it at the last iteration's error value
             xytext=(-20, -15), textcoords="offset points",  # Offset slightly for clarity
             color=err_color, fontsize=10, fontweight="bold",
             bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
@@ -246,7 +246,7 @@ def plot_group_training_history(epochs, group_errors, group_stds, group_activ, i
     )
 
     # Set the x-axis label for the last subplot
-    axes[-1].set_xlabel("Epochs")
+    axes[-1].set_xlabel("Iterations")
 
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
@@ -272,8 +272,8 @@ def load_model_and_history(model, model_dir, model_name="model.pth", history_nam
         # Load model
         with open(history_path, 'r') as f:
             history = yaml.safe_load(f)
-        epoch = history['epochs'][-1]
-        model_name = f'model_epoch{epoch}.pth'
+        iteration = history['iterations'][-1]
+        model_name = f'model_iteration{iteration}.pth'
         model_path = f'{model_dir}/models/{model_name}'
         if os.path.exists(model_path):
             model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))

@@ -31,7 +31,7 @@ def plot_fps(fps,
     mode_scale=0.25,
     fig=None,
     save_path=None,
-    epoch=None):
+    iteration=None):
 
     '''Plots a visualization and analysis of the unique fixed points.
 
@@ -134,11 +134,11 @@ def plot_fps(fps,
         if n_states == 2:
             ax.ylabel('Hidden 2', fontweight=FONT_WEIGHT)
 
-    # ax.text(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+    # ax.text(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
     if n_states >= 3:
-        ax.text2D(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+        ax.text2D(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
     else:
-        ax.text(0.05, 0.95, f"Epoch: {epoch}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
+        ax.text(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
 
     ## Plot blue trajectory from state_traj and plot_batch_idx ##
     if state_traj is not None:
@@ -173,7 +173,7 @@ def plot_fps(fps,
         angles = range(0, 360, 45)  # Angles at 0°, 45°, 90°, ..., 315°
         for angle in angles:
             ax.view_init(elev=30, azim=angle)  # Adjust elevation and azimuth as needed
-            fig.savefig(f"{save_path}/fpf_angle_{angle}_epoch_{epoch}.png", format='png', dpi=300)
+            fig.savefig(f"{save_path}/fpf_angle_{angle}_iteration_{iteration}.png", format='png', dpi=300)
             plt.close()
         # with open(f'{fpf_dir}/fpf_3d_{fpf_name}.fig.pickle', 'wb') as file:
         #     pickle.dump(fig, file)  
@@ -181,7 +181,7 @@ def plot_fps(fps,
 
     return fig
 
-def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, epoch):
+def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, iteration):
     # thetas: (trials,1) -> (trials,)
     thetas = thetas.detach().numpy().squeeze()
     hidden_state_end = hidden_state_end.detach().numpy().squeeze()
@@ -225,7 +225,7 @@ def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, epoch):
     plt.axis('equal')
     plt.xlabel('Component 1')
     plt.ylabel('Component 2')
-    plt.title(f'PCA vs Decoded Points (2D) - Epoch {epoch}')
+    plt.title(f'PCA vs Decoded Points (2D) - iteration {iteration}')
     plt.legend()
     plt.axhline(0, color='black', linewidth=1, linestyle='-')  # Highlight x-axis
     plt.axvline(0, color='black', linewidth=1, linestyle='-')  # Highlight y-axis
@@ -233,7 +233,7 @@ def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, epoch):
 
     if not os.path.exists(pca_dir):
         os.makedirs(pca_dir)
-    file_path = f'{pca_dir}/pca_vs_F_epoch_{epoch}.png'
+    file_path = f'{pca_dir}/pca_vs_F_iteration_{iteration}.png'
     plt.savefig(file_path, dpi=300)
     plt.close()
 

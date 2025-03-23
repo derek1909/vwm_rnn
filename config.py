@@ -46,12 +46,12 @@ simul_steps = int(T_simul/dt)
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
 load_history = training_params["load_history"]
-num_epochs = int(training_params["num_epochs"]) 
+num_iterations = int(training_params["num_iterations"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
 lambda_err = training_params["lambda_err"]  # coeff for error penalty
-num_trials = training_params["num_trials"]  # Number of trials per epoch
-logging_period = training_params["logging_period"]  # record progress every 10 epoch
+num_trials = training_params["num_trials"]  # Number of trials per iteration
+logging_period = training_params["logging_period"]  # record progress every 10 iteration
 early_stop_patience = training_params["early_stop_patience"]
 adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
@@ -68,7 +68,7 @@ fpf_bool = fpf_params["fpf_bool"]
 fpf_pca_bool = fpf_params["fpf_pca_bool"]
 fpf_names = fpf_params["fpf_names"] # stimuli or decode.
 fpf_N_init = fpf_params["fpf_N_init"] # Number of initial states for optimization
-fpf_trials = fpf_params["fpf_trials"]  # Number of trials per epoch
+fpf_trials = fpf_params["fpf_trials"]  # Number of trials per iteration
 fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
 fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 

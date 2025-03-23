@@ -38,7 +38,7 @@ max_workers = 16
 
 def get_model_files():
     """Return a sorted list of model filenames applying filtering options."""
-    model_files = [f for f in os.listdir(model_folder) if re.match(r'model_epoch\d+\.pth', f)]
+    model_files = [f for f in os.listdir(model_folder) if re.match(r'model_iteration\d+\.pth', f)]
     model_files = sorted(model_files, key=lambda x: int(re.findall(r'\d+', x)[0]))
     if plot_first_n > 0:
         model_files = model_files[:plot_first_n]
@@ -52,13 +52,13 @@ plot_lock = Lock()
 # ---------------------------
 # Analysis Functions
 # ---------------------------
-def analyze_activation(model, epoch_num, common_input, save_folder):
+def analyze_activation(model, iteration_num, common_input, save_folder):
     """
     Run the model on common_input, compute average firing rate and plot it versus time constant τ.
     
     Args:
         model (torch.nn.Module): Loaded model.
-        epoch_num (int): Current epoch number.
+        iteration_num (int): Current iteration number.
         common_input (Tensor): Input tensor (u_t) required for activation analysis.
         save_folder (str): Folder to save the resulting plot.
     
@@ -79,24 +79,24 @@ def analyze_activation(model, epoch_num, common_input, save_folder):
         plt.scatter(taus_np, avg_firing_rate_np, alpha=0.7)
         plt.xlabel("Time constant τ (ms)")
         plt.ylabel("Average firing rate (Hz)")
-        plt.title(f"Activation at Epoch {epoch_num}")
+        plt.title(f"Activation at iteration {iteration_num}")
         plt.grid(True)
         plt.ylim(0, 10)
         plt.xscale("log")
         
-        png_filename = f"activation_epoch{epoch_num}.png"
+        png_filename = f"activation_iteration{iteration_num}.png"
         save_path = os.path.join(save_folder, png_filename)
         plt.savefig(save_path, dpi=150)
         plt.close('all')
     return save_path
 
-def analyze_weights(model, epoch_num, save_folder):
+def analyze_weights(model, iteration_num, save_folder):
     """
     Plot weight matrices (B, W, F) side by side.
     
     Args:
         model (torch.nn.Module): Loaded model.
-        epoch_num (int): Current epoch number.
+        iteration_num (int): Current iteration number.
         save_folder (str): Folder to save the resulting plot.
     
     Returns:
@@ -111,8 +111,8 @@ def analyze_weights(model, epoch_num, save_folder):
         # Create a subplot with 1 row and 3 columns.
         fig, axes = plt.subplots(1, 3, figsize=(15, 6), gridspec_kw={'width_ratios': [1, 2.5, 1]})
         
-        # Add a suptitle with the epoch number.
-        fig.suptitle(f"Weight Evolution at Epoch {epoch_num}", fontsize=16)
+        # Add a suptitle with the iteration number.
+        fig.suptitle(f"Weight Evolution at iteration {iteration_num}", fontsize=16)
 
         # Plot B (Input-to-Neurons)
         im0 = axes[0].imshow(B_np, cmap="seismic", vmin=-np.max(np.abs(B_np)), vmax=np.max(np.abs(B_np)))
@@ -141,7 +141,7 @@ def analyze_weights(model, epoch_num, save_folder):
             ax.set_yticks([])
             ax.set_anchor("C")
 
-        png_filename = f"weights_epoch{epoch_num}.png"
+        png_filename = f"weights_iteration{iteration_num}.png"
         save_path = os.path.join(save_folder, png_filename)
         plt.savefig(save_path, dpi=200, bbox_inches="tight")
         plt.close('all')
@@ -203,9 +203,9 @@ def create_common_input():
 
 def process_model_file(model_file, common_input):
     """
-    Loads a single model, runs all enabled analyses, and returns epoch and a dict mapping analysis names to PNG paths.
+    Loads a single model, runs all enabled analyses, and returns iteration and a dict mapping analysis names to PNG paths.
     """
-    epoch_num = int(re.findall(r'\d+', model_file)[0])
+    iteration_num = int(re.findall(r'\d+', model_file)[0])
     model_path = os.path.join(model_folder, model_file)
     model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, dt=dt, device=device, positive_input=positive_input)
     state_dict = torch.load(model_path, map_location=device)
@@ -218,11 +218,11 @@ def process_model_file(model_file, common_input):
             continue
         func = analysis["function"]
         if analysis["requires_input"]:
-            png_path = func(model, epoch_num, common_input, analysis["save_folder"])
+            png_path = func(model, iteration_num, common_input, analysis["save_folder"])
         else:
-            png_path = func(model, epoch_num, analysis["save_folder"])
+            png_path = func(model, iteration_num, analysis["save_folder"])
         results[name] = png_path
-    return (epoch_num, results)
+    return (iteration_num, results)
 
 def main():
     """
@@ -247,7 +247,7 @@ def main():
 
     results = sorted(results, key=lambda x: x[0])
     png_paths = {name: [] for name, a in ANALYSES.items() if a["enabled"]}
-    for epoch_num, result in results:
+    for iteration_num, result in results:
         for name in result:
             png_paths[name].append(result[name])
 
