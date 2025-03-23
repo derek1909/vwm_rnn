@@ -5,7 +5,6 @@ model_params:
   dt: 10
   ILC_noise: 0.01
   spike_noise_factor: 0.5
-  decode_noise: 0.0
   positive_input: true
   dales_law: true
   T_init: 20

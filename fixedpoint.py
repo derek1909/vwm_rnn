@@ -74,8 +74,8 @@ def fixed_points_finder(model, epoch=None):
     """
     Simulate the RNN to collect hidden states and find fixed points.
     """
-    np.random.seed(40)
-    torch.manual_seed(40)
+    # np.random.seed(40)
+    # torch.manual_seed(40)
 
     ## Simulate to collect hidden states ##
     # u_t: (trials, steps, neurons)
@@ -107,7 +107,7 @@ import math
 import yaml
 from scipy.stats import chi2
 
-def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials, result_dir):
+def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials, result_dir, true_orientation=None):
     """
     Parameters:
       r_output: Neural network output, shape (total_trials, steps, neurons)
@@ -115,7 +115,8 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
       T_init, T_stimi, T_delay: Duration (in seconds) of each experimental phase.
       dt: Time step (in seconds)
       num_trials: Number of randomly selected trials to plot
-
+      true_orientation: Optional; a 2D point representing the true orientation.
+      
     Functionality:
       1. Compute the decoded points for each trial (only first 2 components), resulting in shape (trials, steps, 2).
       2. Randomly select a subset of trials and plot their decoded point trajectories.
@@ -125,10 +126,9 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
          - End of the initial phase (T_init)
          - End of the stimuli phase (T_init + T_stimi)
          - End of the delay phase (T_init + T_stimi + T_delay)
+         - End of the decode phase (T_init + T_stimi + T_delay + T_decode - 1)
+      5. If true_orientation is provided, add it to the plot.
     """
-    import numpy as np
-    import matplotlib.pyplot as plt
-
     # Compute the decoded points: shape -> (trials, steps, 2)
     decode_points = (np.matmul(r_output, F.T))[:, :, :2]
     
@@ -147,18 +147,17 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
         
         # Plot trajectory with scatter plot; color represents time (using 'viridis' colormap)
         sc = plt.scatter(traj[:, 0], traj[:, 1],
-                         c=time_array, cmap='viridis', s=10,
-                         label=f'Trial {trial_idx}' if first_trial else None)
-        # 同时绘制连线，方便观察轨迹走向
+                         c=time_array, cmap='viridis', s=10 if first_trial else None)
+        # Also plot a line for better visualization of the trajectory
         plt.plot(traj[:, 0], traj[:, 1], alpha=0.5)
         
-        # Calculate indices for phase boundaries (ensure indices are within trajectory length)
+        # Calculate indices for phase boundaries (ensuring indices are within trajectory length)
         phase0_idx = 0
         phase1_idx = int(T_init / dt)
         phase2_idx = int((T_init + T_stimi) / dt)
         phase3_idx = int((T_init + T_stimi + T_delay) / dt)
         phase4_idx = int((T_init + T_stimi + T_delay + T_decode) / dt) - 1
-   
+        
         # Mark the initial location (start of trial)
         if phase0_idx < steps:
             plt.scatter(traj[phase0_idx, 0], traj[phase0_idx, 1],
@@ -179,12 +178,27 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
             plt.scatter(traj[phase3_idx, 0], traj[phase3_idx, 1],
                         marker='s', color='lime', s=50,
                         label='End of Delay' if first_trial else "")
-        # Mark the end of the decode phase (final location)
+        # Mark the end of the decode phase
         if phase4_idx < steps:
             plt.scatter(traj[phase4_idx, 0], traj[phase4_idx, 1],
                         marker='D', color='blue', s=50,
                         label='End of Decode' if first_trial else "")
         first_trial = False  # Only add legend labels once
+
+    if true_orientation is not None:
+        true_orientation_length = max(np.max(np.linalg.norm(decode_points[i], axis=1)) for i in selected_indices) * 0.5
+        # Compute the endpoint of the true orientation line
+        true_line_end = [math.cos(true_orientation) * true_orientation_length,
+                         math.sin(true_orientation) * true_orientation_length]
+        plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
+                 color='red', label='True Orientation', linestyle='-', linewidth=1.5)
+        plt.scatter(true_line_end[0], true_line_end[1],
+                    marker='*', color='red', s=100)
+        
+
+    # Draw x and y axis lines at zero
+    plt.axhline(0, color='black', linewidth=1, linestyle='-')
+    plt.axvline(0, color='black', linewidth=1, linestyle='-')
 
     # Add a color bar to indicate time progression
     cbar = plt.colorbar(sc)
@@ -195,7 +209,8 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
     plt.title('Sampled Trajectories in the Decoding Plane')
     plt.legend()
     plt.grid(True)
-    
+    plt.axis('equal')
+
     # Save the figure to the specified result directory
     image_path = f'{result_dir}/sample_trajectories.png'
     plt.savefig(image_path, dpi=300)
@@ -254,8 +269,9 @@ def SNR_analysis(model):
     snr_dir = f'{model_dir}/snr'
     if not os.path.exists(snr_dir):
         os.makedirs(snr_dir)
-    
-    plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials=1, result_dir=snr_dir)
+
+    # Plot sampled trajectories on the Fr Plane.
+    plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials=1, result_dir=snr_dir, true_orientation=true_orientation)
 
     # -------- Plot 1: Non Time Averaged --------
     plt.figure(figsize=(8, 6))
@@ -299,7 +315,8 @@ def SNR_analysis(model):
     plt.title('SNR - Non Time Averaged')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.6)
-    
+    plt.axis('equal')
+
     image_path1 = f'{snr_dir}/non_time_averaged.png'
     plt.savefig(image_path1, dpi=300)
     plt.close()
@@ -346,7 +363,8 @@ def SNR_analysis(model):
     plt.title('SNR - Time Averaged')
     plt.legend()
     plt.grid(True, linestyle='--', alpha=0.6)
-    
+    plt.axis('equal')
+
     image_path2 = f'{snr_dir}/time_averaged.png'
     plt.savefig(image_path2, dpi=300)
     plt.close()
