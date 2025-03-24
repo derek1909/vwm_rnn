@@ -427,11 +427,11 @@ def prepare_state(model):
 
     
 def prepare_state_snr(model):
-    snr_item_num = 2
-    snr_trial_num = 200 # i.e. repeated times of the same 
+    snr_item_num = 1
+    snr_trial_num = 2000 # i.e. repeated times of the same 
     
-    np.random.seed(39)
-    torch.manual_seed(39)
+    # np.random.seed(39)
+    # torch.manual_seed(39)
 
     input_presence = torch.zeros(max_item_num, device=device)
     input_presence[0] = 1  # Always include the first item

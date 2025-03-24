@@ -121,11 +121,11 @@ def plot_results_vs_neurons(results, save_path, fig_size=(8, 3)):
 
 def main():
     # Parameters
-    EXP_NAME = "ILC_NoDelay"
+    EXP_NAME = "PoiNoise"
     PARA_CATA = "model_params"
-    PARA_NAME = "ILC_noise"
-    PARA_LIST = [0, 1e-3, 1e-2, 0.1, 0.5, 1, 2, 5]
-    
+    PARA_NAME = "spike_noise_factor"
+    PARA_LIST = [0.0, 0.005, 0.05, 0.5]
+
     # Setup experiment
     exp_dir, config_path = setup_experiment(EXP_NAME)
     
@@ -138,11 +138,6 @@ def main():
     with open(results_path, 'w') as f:
         yaml.dump(results, f, default_flow_style=False)
     print(f"Final results saved to {results_path}")
-    
-    # Plot results
-    # plot_path = f"{exp_dir}/performance_curves.png"
-    # plot_results_vs_neurons(results, plot_path)
-    # print(f"Plot saved to {plot_path}")
 
 if __name__ == "__main__":
     main()

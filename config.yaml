@@ -2,22 +2,24 @@ model_params:
   max_item_num: 2
   item_num: [1,2]
   num_neurons: 128
-  dt: 10
+  dt: 1
+  tau_max: 300
+  tau_min: 10
   ILC_noise: 0.01
-  spike_noise_factor: 0.5
+  spike_noise_factor: 0.01
   positive_input: true
   dales_law: true
   T_init: 20
-  T_stimi: 400
-  T_delay: 500
-  T_decode: 400
+  T_stimi: 500
+  T_delay: 1000
+  T_decode: 500
 
 training_params:
   train_rnn: true
   load_history: false
   num_iterations: 50000
   eta: 0.0001
-  lambda_reg: 1.0
+  lambda_reg: 0.0005
   lambda_err: 1.0
   num_trials: 128
   logging_period: 50
@@ -25,13 +27,13 @@ training_params:
   adaptive_lr_patience: 100
 
 model_and_logging_params:
-  rnn_name: "Observed_r_constNoise"
-  cuda_device: 1
+  rnn_name: "long_delay_short_tau"
+  cuda_device: 0
   error_dist_bool: true
-  SNR_analy_bool: false
+  SNR_analy_bool: true
 
 fpf_params:
-  fpf_bool: true
+  fpf_bool: false
   fpf_pca_bool: true
   fpf_names: ['decode']
   fpf_trials: 50
