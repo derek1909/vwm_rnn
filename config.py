@@ -60,7 +60,7 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
 rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}k{spike_noise_factor}'
-model_dir = f"rnns/{rnn_name}"
+model_dir = f"rnn_models/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
 error_dist_bool = logging_params["error_dist_bool"]
 SNR_analy_bool = logging_params["SNR_analy_bool"]

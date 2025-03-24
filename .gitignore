@@ -1,6 +1,5 @@
 __pycache__
 .DS_Store
-draft.ipynb
-rnns
+rnn_models
 .vscode/launch.json
 wandb

@@ -8,7 +8,7 @@ import sys
 
 def setup_experiment(exp_name, config_source="./config.yaml"):
     """Setup experiment directory and copy config file."""
-    exp_dir = f"./rnns/exp_{exp_name}"
+    exp_dir = f"./rnn_models/exp_{exp_name}"
     config_dest = f"{exp_dir}/config.yaml"
     
     os.makedirs(exp_dir, exist_ok=True)

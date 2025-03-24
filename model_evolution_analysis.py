@@ -15,7 +15,7 @@ warnings.filterwarnings("ignore", message="You are using `torch.load` with `weig
 
 ## Example usage: 
 # (torch2) jd976@cblgpu07:/scratches/kolmogorov_2/jd976/working/vwm_rnn$ 
-# python model_evolution_analysis.py --config /homes/jd976/working/vwm_rnn/rnns/exp_RegStrength_MultiItem_wPoiNoiseHeterTau_longer/lambda_reg-0.10000000_n512item10PI1k0.005/config.yaml
+# python model_evolution_analysis.py --config /homes/jd976/working/vwm_rnn/rnn_models/exp_RegStrength_MultiItem_wPoiNoiseHeterTau_longer/lambda_reg-0.10000000_n512item10PI1k0.005/config.yaml
 
 # Add project root to Python path
 sys.path.append(os.path.abspath("."))

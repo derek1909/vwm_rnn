@@ -3,7 +3,7 @@ import re
 import imageio.v3 as iio
 
 # Define the folder containing the PNG files
-folder_path = "/homes/jd976/working/vwm_rnn/rnns/256n_1item_PI_theta4/fpf/decode/angle_45"
+folder_path = "/homes/jd976/working/vwm_rnn/rnn_models/256n_1item_PI_theta4/fpf/decode/angle_45"
 
 # Define the output GIF file name
 output_gif_path = f"{folder_path}.gif"
