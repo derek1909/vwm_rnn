@@ -207,7 +207,7 @@ def process_model_file(model_file, common_input):
     """
     iteration_num = int(re.findall(r'\d+', model_file)[0])
     model_path = os.path.join(model_folder, model_file)
-    model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, dt=dt, device=device, positive_input=positive_input)
+    model = RNNMemoryModel(max_item_num=max_item_num, num_neurons=num_neurons, dt=dt, tau_min=tau_min, tau_max=tau_max, device=device, positive_input=positive_input)
     state_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(state_dict)
     model.eval()

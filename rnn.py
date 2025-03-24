@@ -7,11 +7,13 @@ import math
 # from typeguard import typechecked  # For runtime type checking
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, dt=0.1, spike_noise_factor=0.0,
+    def __init__(self, max_item_num, num_neurons, dt=0.1, tau_min=50, tau_max=50, spike_noise_factor=0.0,
                  device='cpu', positive_input=True, dales_law=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
         self.dt = dt
+        self.tau_min = tau_min
+        self.tau_max = tau_max
         self.spike_noise_factor = spike_noise_factor
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
@@ -31,8 +33,8 @@ class RNNMemoryModel(nn.Module):
         self.register_buffer('dales_sign', dales_sign)
 
         # ---- Sample tau ----
-        # Log-space sampling for tau: 50ms ~ 50*20ms
-        tau = 50 * torch.exp(torch.rand(num_neurons, device=device) * math.log(20))
+        # Log-space sampling for tau: (tau_min ~ tau_max) ms
+        tau = self.tau_min * torch.exp(torch.rand(num_neurons, device=device) * math.log(self.tau_max / self.tau_min))
         if self.dales_law:
             # Only sort tau when Dale's law is enabled.
             num_excitatory = int(num_neurons * 0.5)

@@ -10,7 +10,7 @@ from utils import *
 from fixedpoint import fixed_points_finder, SNR_analysis
 
 if __name__ == "__main__":
-    model = RNNMemoryModel(max_item_num, num_neurons, dt, spike_noise_factor, device=device, positive_input=positive_input, dales_law=dales_law)
+    model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_factor, device=device, positive_input=positive_input, dales_law=dales_law)
 
     # Load model and history if training from a previous checkpoint
     if load_history:
