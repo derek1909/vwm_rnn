@@ -251,6 +251,23 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
+    final_errors = [errors[-1] for errors in group_errors]
+    final_activations = [activ[-1] for activ in group_activ]
+
+    plt.figure(figsize=(8, 6))
+    plt.plot(item_num, final_errors, marker='o', color=err_color, label='Last Error (rad)')
+    plt.plot(item_num, final_activations, marker='s', color=activ_color, label='Activation (Hz)')
+    plt.xlabel('Item Number')
+    plt.ylabel('Value')
+    plt.title('Error and Activation vs. Item Number')
+    plt.legend()
+    plt.grid(True)
+
+    # Save the final plot
+    final_plot_path = os.path.join(model_dir, 'error_activ_vs_itemnum.png')
+    plt.savefig(final_plot_path, dpi=300)
+    plt.close()
+
 def save_model_and_history(model, history, model_dir, model_name="model", history_name="training_history.yaml"):
     """Saves the model state and training history to the specified directory."""
     os.makedirs(model_dir, exist_ok=True)
