@@ -427,7 +427,7 @@ def prepare_state(model):
 
     
 def prepare_state_snr(model):
-    snr_item_num = 1
+    snr_item_num = 10
     snr_trial_num = 2000 # i.e. repeated times of the same 
     
     # np.random.seed(39)

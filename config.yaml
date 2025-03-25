@@ -16,7 +16,8 @@ model_params:
 
 training_params:
   train_rnn: true
-  load_history: false
+  load_history: true
+  use_scripted_model: true
   num_iterations: 50000
   eta: 0.0001
   lambda_reg: 0.0005
@@ -29,6 +30,7 @@ training_params:
 model_and_logging_params:
   rnn_name: "long_delay_short_tau"
   cuda_device: 0
+  plot_weights_bool: true
   error_dist_bool: true
   SNR_analy_bool: true
 

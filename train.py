@@ -249,7 +249,7 @@ def train(model, model_dir, history=None):
                 os.makedirs(f'{model_dir}/models', exist_ok=True)
                 save_model_and_history(model, history, 
                                     model_dir,
-                                    model_name=f'model_iteration{iteration}.pth')
+                                    model_name=f'model_iteration{iteration}')
 
             if early_stopping.early_stop:
                 print("Early stopping")

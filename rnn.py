@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
-# from typing import Optional, Tuple
+from typing import Optional, Tuple
 # from jaxtyping import jaxtyped, Float, Int  # Import jaxtyped helpers and type aliases
 # from typeguard import typechecked  # For runtime type checking
 
@@ -89,7 +89,7 @@ class RNNMemoryModel(nn.Module):
         poisson_like_noise = self.spike_noise_factor * torch.sqrt(r * 1e3 / self.dt + 1e-10) * torch.randn_like(r, device=self.device)
         return F.relu(r + poisson_like_noise)
     
-    def forward(self, u, r0=None):
+    def forward(self, u: torch.Tensor, r0: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Args:
             u: (batch_size, seq_len, input_size) = (trial, steps, 3*max_item_num)
@@ -103,8 +103,12 @@ class RNNMemoryModel(nn.Module):
                 Final hidden state.
         """
         batch_size, seq_len, _ = u.size()  # Extract dimensions from input
-        r0 = r0 if r0 is not None else torch.zeros(1, batch_size, self.num_neurons, device=self.device)
-        
+        if r0 is None:
+            r0 = torch.zeros(1, batch_size, self.num_neurons, device=self.device)
+
+        # Explicitly assert that r0 is not None to satisfy TorchScript type inference
+        assert r0 is not None, "r0 should never be None at this point"
+
         # Initialize the firing rate for all time steps
         r_output = torch.zeros(batch_size, seq_len, self.num_neurons, device=self.device)
         
@@ -132,6 +136,7 @@ class RNNMemoryModel(nn.Module):
         # Return all hidden states and the final hidden state
         return r_output, r.unsqueeze(0)
     
+    @torch.jit.export
     def decode(self, r: torch.Tensor) -> torch.Tensor:
         """
         Decodes the input firing rates (r) into a normalized output representation using observed_r.

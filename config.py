@@ -48,6 +48,7 @@ simul_steps = int(T_simul/dt)
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
 load_history = training_params["load_history"]
+use_scripted_model = training_params["use_scripted_model"]
 num_iterations = int(training_params["num_iterations"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
@@ -62,6 +63,7 @@ rnn_name = logging_params["rnn_name"]
 rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}k{spike_noise_factor}'
 model_dir = f"rnn_models/{rnn_name}"
 cuda_device = int(logging_params["cuda_device"])
+plot_weights_bool = logging_params["plot_weights_bool"]
 error_dist_bool = logging_params["error_dist_bool"]
 SNR_analy_bool = logging_params["SNR_analy_bool"]
 

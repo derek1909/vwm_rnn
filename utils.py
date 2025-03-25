@@ -251,20 +251,24 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
-def save_model_and_history(model, history, model_dir, model_name="model.pth", history_name="training_history.yaml"):
+def save_model_and_history(model, history, model_dir, model_name="model", history_name="training_history.yaml"):
     """Saves the model state and training history to the specified directory."""
     os.makedirs(model_dir, exist_ok=True)
 
     # Save model
-    model_path = f'{model_dir}/models/{model_name}'
-    torch.save(model.state_dict(), model_path)
+    if use_scripted_model:
+        model_path = f'{model_dir}/models/scripted_{model_name}.pt'
+        model.save(model_path)
+    else:
+        model_path = f'{model_dir}/models/{model_name}.pth'
+        torch.save(model.state_dict(), model_path)
 
     # Save training history
     history_path = f'{model_dir}/{history_name}'
     with open(history_path, 'w') as f:
         yaml.dump(history, f, default_flow_style=False)
 
-def load_model_and_history(model, model_dir, model_name="model.pth", history_name="training_history.yaml"):
+def load_model_and_history(model, model_dir, model_name="model", history_name="training_history.yaml"):
     """Loads the model state and training history from the specified directory."""
     history_path = f'{model_dir}/{history_name}'
 
@@ -273,10 +277,17 @@ def load_model_and_history(model, model_dir, model_name="model.pth", history_nam
         with open(history_path, 'r') as f:
             history = yaml.safe_load(f)
         iteration = history['iterations'][-1]
-        model_name = f'model_iteration{iteration}.pth'
-        model_path = f'{model_dir}/models/{model_name}'
-        if os.path.exists(model_path):
-            model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
+        model_name = f'model_iteration{iteration}'
+
+        if use_scripted_model:
+            model_path = f'{model_dir}/models/scripted_{model_name}.pt'
+            if os.path.exists(model_path):
+                model = torch.jit.load(model_path)
+        else:
+            model_path = f'{model_dir}/models/{model_name}.pth'
+            if os.path.exists(model_path):
+                model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
+
     else:
         history = None
 
@@ -349,10 +360,10 @@ def plot_error_dist(model):
         num_trials = 4000
         item_num = [1,2]
     elif max_item_num < 8:
-        num_trials = 6000
+        num_trials = 10000
         item_num = list(range(1, max_item_num+1, 2))
     else:
-        num_trials = 20000
+        num_trials = 16000
         item_num = [8, 4, 2, 1]
 
     # Split num_trials into len(item_num) groups
@@ -377,12 +388,14 @@ def plot_error_dist(model):
     
     # Generate input tensor
     u_t = generate_input(input_presence, input_thetas, ILC_noise, T_init, T_stimi, T_delay, T_decode, dt)
-    
+
     # Run simulation and slice the output
     r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
     step_threshold = int((T_init + T_stimi + T_delay) / dt)
-    r_decode = r_output[:, step_threshold:, :].transpose(0, 1)  # (steps_for_loss, trial, neuron)
-    
+    r_decode = r_output[:, step_threshold:, :].transpose_(0, 1).clone()  # (steps_for_loss, trial, neuron)
+    del r_output    # delete r_output as it can be up to 8GB
+    torch.cuda.empty_cache()
+
     # Decode the output
     u_hat = model.decode(r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
     u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
