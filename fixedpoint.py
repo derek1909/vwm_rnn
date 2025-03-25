@@ -106,101 +106,101 @@ import matplotlib.patches as patches
 import math
 import yaml
 from scipy.stats import chi2
+import matplotlib.patches as patches
+from matplotlib import cm
 
-def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials, result_dir, true_orientation=None):
+def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt, num_trials, result_dir, true_orientation=None, num_neurons=5):
     """
     Parameters:
       r_output: Neural network output, shape (total_trials, steps, neurons)
       F: Decoding matrix, shape (max_item_num*2, neurons). Only the first two dimensions are used as the decode point.
-      T_init, T_stimi, T_delay: Duration (in seconds) of each experimental phase.
+      T_init, T_stimi, T_delay, T_decode: Durations (in seconds) of each experimental phase.
       dt: Time step (in seconds)
-      num_trials: Number of randomly selected trials to plot
+      num_trials: Number of randomly selected trials to plot trajectories
       true_orientation: Optional; a 2D point representing the true orientation.
+      num_neurons: Number of neurons to randomly select (from one of the chosen trials) for activity plotting.
       
     Functionality:
       1. Compute the decoded points for each trial (only first 2 components), resulting in shape (trials, steps, 2).
       2. Randomly select a subset of trials and plot their decoded point trajectories.
-      3. Use a scatter plot where the point color indicates the progression of time (derived using dt).
-      4. Mark the boundary points on each trial corresponding to:
-         - The start of the trial (initial location)
-         - End of the initial phase (T_init)
-         - End of the stimuli phase (T_init + T_stimi)
-         - End of the delay phase (T_init + T_stimi + T_delay)
-         - End of the decode phase (T_init + T_stimi + T_delay + T_decode - 1)
-      5. If true_orientation is provided, add it to the plot.
+         - Scatter plot: color indicates time (using the 'viridis' colormap).
+         - Boundary markers for phase transitions: start, end of init, stimuli, delay, and decode.
+      3. For one of the selected trials, randomly select several neurons and plot their firing rate (Hz) vs time.
+         - Shaded backgrounds indicate the different experimental phases.
+      4. Save both plots to the provided result directory.
     """
+
+    # -------- Plot 1: Decoded Trajectories --------
     # Compute the decoded points: shape -> (trials, steps, 2)
     decode_points = (np.matmul(r_output, F.T))[:, :, :2]
     
     total_trials = decode_points.shape[0]
-    # Randomly select trial indices
+    # Randomly select trial indices for trajectory plotting
     selected_indices = np.random.choice(total_trials, size=num_trials, replace=False)
     
     plt.figure(figsize=(10, 8))
+    first_trial = True  # flag to add legend labels only once
     
-    # Use label only for the first trial to avoid duplicate legend entries
-    first_trial = True
     for trial_idx in selected_indices:
         traj = decode_points[trial_idx]  # Trajectory for the current trial, shape (steps, 2)
         steps = traj.shape[0]
         time_array = np.arange(steps) * dt  # Corresponding time array
         
-        # Plot trajectory with scatter plot; color represents time (using 'viridis' colormap)
+        # Plot trajectory with scatter; color indicates time progression
         sc = plt.scatter(traj[:, 0], traj[:, 1],
                          c=time_array, cmap='viridis', s=10 if first_trial else None)
-        # Also plot a line for better visualization of the trajectory
         plt.plot(traj[:, 0], traj[:, 1], alpha=0.5)
         
-        # Calculate indices for phase boundaries (ensuring indices are within trajectory length)
+        # Calculate indices for phase boundaries (ensuring indices do not exceed steps)
         phase0_idx = 0
         phase1_idx = int(T_init / dt)
         phase2_idx = int((T_init + T_stimi) / dt)
         phase3_idx = int((T_init + T_stimi + T_delay) / dt)
         phase4_idx = int((T_init + T_stimi + T_delay + T_decode) / dt) - 1
-        
+
         # Mark the initial location (start of trial)
         if phase0_idx < steps:
             plt.scatter(traj[phase0_idx, 0], traj[phase0_idx, 1],
                         marker='s', color='magenta', s=50,
-                        label='Initial Location' if first_trial else "")
+                        label=f'Initial Location (t = {0:.2f} ms)' if first_trial else "")
         # Mark the end of the initial phase
         if phase1_idx < steps:
+            t_phase1 = phase1_idx * dt
             plt.scatter(traj[phase1_idx, 0], traj[phase1_idx, 1],
                         marker='s', color='orange', s=50,
-                        label='End of Init' if first_trial else "")
+                        label=f'End of Init (t = {t_phase1:.2f} ms)' if first_trial else "")
         # Mark the end of the stimuli phase
         if phase2_idx < steps:
+            t_phase2 = phase2_idx * dt
             plt.scatter(traj[phase2_idx, 0], traj[phase2_idx, 1],
                         marker='s', color='cyan', s=50,
-                        label='End of Stimuli' if first_trial else "")
+                        label=f'End of Stimuli (t = {t_phase2:.2f} ms)' if first_trial else "")
         # Mark the end of the delay phase
         if phase3_idx < steps:
+            t_phase3 = phase3_idx * dt
             plt.scatter(traj[phase3_idx, 0], traj[phase3_idx, 1],
                         marker='s', color='lime', s=50,
-                        label='End of Delay' if first_trial else "")
+                        label=f'End of Delay (t = {t_phase3:.2f} ms)' if first_trial else "")
         # Mark the end of the decode phase
         if phase4_idx < steps:
+            t_phase4 = phase4_idx * dt
             plt.scatter(traj[phase4_idx, 0], traj[phase4_idx, 1],
                         marker='D', color='blue', s=50,
-                        label='End of Decode' if first_trial else "")
-        first_trial = False  # Only add legend labels once
+                        label=f'End of Decode (t = {t_phase4:.2f} ms)' if first_trial else "")
+        first_trial = False  # only add labels once
 
     if true_orientation is not None:
+        # Use half the maximum norm of the trajectories from the selected trials for display
         true_orientation_length = max(np.max(np.linalg.norm(decode_points[i], axis=1)) for i in selected_indices) * 0.5
-        # Compute the endpoint of the true orientation line
         true_line_end = [math.cos(true_orientation) * true_orientation_length,
                          math.sin(true_orientation) * true_orientation_length]
         plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
                  color='red', label='True Orientation', linestyle='-', linewidth=1.5)
         plt.scatter(true_line_end[0], true_line_end[1],
                     marker='*', color='red', s=100)
-        
-
-    # Draw x and y axis lines at zero
+    
     plt.axhline(0, color='black', linewidth=1, linestyle='-')
     plt.axvline(0, color='black', linewidth=1, linestyle='-')
-
-    # Add a color bar to indicate time progression
     cbar = plt.colorbar(sc)
     cbar.set_label('Time (s)')
     
@@ -210,15 +210,65 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_tria
     plt.legend()
     plt.grid(True)
     plt.axis('equal')
-
-    # Save the figure to the specified result directory
-    image_path = f'{result_dir}/sample_trajectories.png'
-    plt.savefig(image_path, dpi=300)
+    
+    # Save the trajectory plot
+    if not os.path.exists(result_dir):
+        os.makedirs(result_dir)
+    traj_image_path = os.path.join(result_dir, 'sample_trajectories.png')
+    plt.savefig(traj_image_path, dpi=300)
     plt.close()
 
-def SNR_analysis(model):
+    # -------- Plot 2: Neuron Activity vs. Time --------
+    # For demonstration, take the first selected trial from the trajectory selection.
+    trial_idx_for_neurons = selected_indices[0]
+    activity = r_output[trial_idx_for_neurons]  # shape (steps, neurons)
+    steps = activity.shape[0]
+    time = np.arange(steps) * dt  # time vector in seconds
+
+    total_neurons = activity.shape[1]
+    # Randomly select several neurons
+    selected_neurons = np.random.choice(total_neurons, size=num_neurons, replace=False)
+    
+    plt.figure(figsize=(10, 6))
+    
+    # Shade the different experimental phases
+    # Phase boundaries in seconds:
+    t_phase0 = 0
+    t_phase1 = T_init
+    t_phase2 = T_init + T_stimi
+    t_phase3 = T_init + T_stimi + T_delay
+    t_phase4 = T_init + T_stimi + T_delay + T_decode
+    
+    # Use axvspan for shading (only label the first occurrence to avoid duplicate legend entries)
+    plt.axvspan(t_phase0, t_phase1, color='lightgray', alpha=0.5, label='Init Phase')
+    plt.axvspan(t_phase1, t_phase2, color='lightblue', alpha=0.5, label='Stimuli Phase')
+    plt.axvspan(t_phase2, t_phase3, color='lightgreen', alpha=0.5, label='Delay Phase')
+    plt.axvspan(t_phase3, t_phase4, color='navajowhite', alpha=0.5, label='Decode Phase')
+    
+    # Plot firing rate vs. time for each selected neuron.
+    for neuron in selected_neurons:
+        plt.plot(time, activity[:, neuron], label=f'Neuron {neuron}', linewidth=1.5)
+    
+    plt.xlabel('Time (ms)')
+    plt.ylabel('Firing Rate (Hz)')
+    plt.title(f'Neuron Activity vs Time (Trial {trial_idx_for_neurons})')
+    plt.legend()
+    plt.grid(True)
+    
+    # Save the neuron activity plot
+    neuron_image_path = os.path.join(result_dir, 'neuron_activity.png')
+    plt.savefig(neuron_image_path, dpi=300)
+    plt.close()
+    
+
+def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt, model_dir):
+    """
+    Processes the SNR analysis for a single item number.
+    Prepares states, computes signal and noise statistics, generates plots,
+    saves results to disk, and returns the SNR values in dB.
+    """
     # Prepare the states
-    u_t, r_output, thetas = prepare_state_snr(model)
+    u_t, r_output, thetas = prepare_state_snr(model, snr_item_num)
     
     # 1. Get true orientation from the first trial and convert to a 2D point (unit circle)
     true_orientation = thetas[0, 0].item()
@@ -266,20 +316,20 @@ def SNR_analysis(model):
     '''
 
     # Directory to save results
-    snr_dir = f'{model_dir}/snr'
+    snr_dir = f'{model_dir}/snr/{snr_item_num}item'
     if not os.path.exists(snr_dir):
         os.makedirs(snr_dir)
 
-    # Plot sampled trajectories on the Fr Plane.
-    plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, dt, num_trials=1, result_dir=snr_dir, true_orientation=true_orientation)
-
+    # Plot sampled trajectories on the Fr plane
+    plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt,
+                             num_trials=1, result_dir=snr_dir, true_orientation=true_orientation)
+    
+    
     # -------- Plot 1: Non Time Averaged --------
     plt.figure(figsize=(8, 6))
-    # Scatter plot of all decoded points (flatten trials and steps)
     plt.scatter(decode_points[..., 0].flatten(), decode_points[..., 1].flatten(),
-                label='Decoded Points', marker=',', s=3, alpha=0.5)
+                label='Decoded Points', marker=',', s=3, alpha=0.3)
     
-    # Both lines (true orientation and signal) are drawn with length equal to signal magnitude
     true_line_end = [math.cos(true_orientation) * signal_mag,
                      math.sin(true_orientation) * signal_mag]
     plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
@@ -287,7 +337,7 @@ def SNR_analysis(model):
     plt.plot([0, signal[0]], [0, signal[1]],
              color='green', label='Signal (Mean)', linestyle='-', linewidth=2)
     
-    # Draw an ellipse to indicate Gaussian noise 1 (non-time-averaged)
+    # Draw an ellipse for Gaussian noise 1 (non-time-averaged)
     eigenvals1, eigenvecs1 = np.linalg.eig(noise1_cov)
     order1 = eigenvals1.argsort()[::-1]
     eigenvals1 = eigenvals1[order1]
@@ -327,15 +377,13 @@ def SNR_analysis(model):
     
     plt.figure(figsize=(8, 6))
     plt.scatter(decode_points_time[:, 0], decode_points_time[:, 1],
-                label='Time Averaged Decoded Points', marker='o', s=10, alpha=0.7)
-    
-    # Draw lines for true orientation and signal using the norm of the time averaged signal
+                label='Time Averaged Decoded Points', marker='o', s=10, alpha=0.3)
     plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
              color='red', label='True Orientation', linestyle='-', linewidth=1.5)
     plt.plot([0, signal[0]], [0, signal[1]],
              color='green', label='Signal (Mean)', linestyle='-', linewidth=2)
     
-    # Draw an ellipse to indicate Gaussian noise (time-averaged)
+    # Draw an ellipse for Gaussian noise (time-averaged)
     eigenvals2, eigenvecs2 = np.linalg.eig(noise2_cov)
     order2 = eigenvals2.argsort()[::-1]
     eigenvals2 = eigenvals2[order2]
@@ -393,3 +441,34 @@ def SNR_analysis(model):
     yaml_path = f'{snr_dir}/results.yaml'
     with open(yaml_path, 'w') as f:
         yaml.dump(results, f)
+    
+    return SNR1_dB, SNR2_dB
+
+def SNR_analysis(model):
+    """
+    Runs SNR analysis over a range of item numbers.
+    Calls process_snr_item for each item, collects SNR values,
+    and plots SNR vs. item number for both non-time-averaged and time-averaged cases.
+    """
+    item_numbers = range(1, max_item_num + 1)
+    SNR1_dB_list = []
+    SNR2_dB_list = []
+    
+    for snr_item_num in item_numbers:
+        SNR1_dB, SNR2_dB = process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt, model_dir)
+        SNR1_dB_list.append(SNR1_dB)
+        SNR2_dB_list.append(SNR2_dB)
+    
+    # Plot SNR vs. item number for both metrics
+    plt.figure(figsize=(8, 6))
+    plt.plot(item_numbers, SNR1_dB_list, marker='o', label='SNR1 - Not Time Averaged')
+    plt.plot(item_numbers, SNR2_dB_list, marker='s', label='SNR2 - Time Averaged')
+    plt.xlabel('Item Number', fontsize=12)
+    plt.ylabel('SNR (dB)', fontsize=12)
+    plt.title('SNR vs. Item Number', fontsize=14)
+    plt.legend()
+    plt.grid(True)
+    
+    image_path = f'{model_dir}/snr/snr_vs_items.png'
+    plt.savefig(image_path, dpi=300)
+    plt.close()

@@ -240,7 +240,7 @@ def train(model, model_dir, history=None):
                 pbar_iteration.set_postfix({
                     "Error": f"{history['error_per_iteration'][-1]:.4f}rad",
                     "Activ": f"{history['activation_per_iteration'][-1]:.4f}Hz",
-                    "lr": f"{scheduler.get_last_lr()}",
+                    "lr": f"{scheduler.get_last_lr()[0]}",
                     "PatienceCnt": earlystop_counter,
                 })
                 pbar_iteration.update(logging_period)

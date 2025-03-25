@@ -20,6 +20,9 @@ class RNNMemoryModel(nn.Module):
         self.positive_input = positive_input
         self.dales_law = dales_law
 
+        # To make sure all models have same initialization.
+        torch.manual_seed(39)
+
         # ---- Dale's law assignment ----
         if self.dales_law:
             excitatory_ratio = 0.5
@@ -46,7 +49,7 @@ class RNNMemoryModel(nn.Module):
 
         # ---- Define input matrix ----
         if self.positive_input:
-            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num * 3, device=device)) * 2)
+            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num * 3, device=device)) * 8) # 8 is the inflection point of activation funciton
         else:
             self.B = nn.Parameter(torch.randn(num_neurons, max_item_num * 2, device=device) * 10)
         

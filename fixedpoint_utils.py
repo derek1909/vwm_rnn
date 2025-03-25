@@ -426,9 +426,8 @@ def prepare_state(model):
     return u_t.detach().cpu(), r_output.detach().cpu(), input_thetas.detach().cpu()
 
     
-def prepare_state_snr(model):
-    snr_item_num = 10
-    snr_trial_num = 2000 # i.e. repeated times of the same 
+def prepare_state_snr(model, snr_item_num):
+    snr_trial_num = 1000 # i.e. repeated times of the same 
     
     # np.random.seed(39)
     # torch.manual_seed(39)
@@ -443,8 +442,8 @@ def prepare_state_snr(model):
         
     input_thetas = (torch.rand(max_item_num , device=device) * 2 * torch.pi) - torch.pi
 
-    print(f"SNR theta: {input_thetas}")
-    print(f"SNR presence: {input_presence}")
+    # print(f"SNR theta: {input_thetas}")
+    # print(f"SNR presence: {input_presence}")
 
     # repeat same input snr_trial_num times，
     input_presence = input_presence.repeat(snr_trial_num, 1)

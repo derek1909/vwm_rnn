@@ -360,10 +360,10 @@ def plot_error_dist(model):
         num_trials = 4000
         item_num = [1,2]
     elif max_item_num < 8:
-        num_trials = 10000
+        num_trials = 5000
         item_num = list(range(1, max_item_num+1, 2))
     else:
-        num_trials = 16000
+        num_trials = 5000
         item_num = [8, 4, 2, 1]
 
     # Split num_trials into len(item_num) groups

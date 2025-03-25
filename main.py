@@ -25,6 +25,7 @@ if __name__ == "__main__":
     if train_rnn:
         history = train(model, model_dir, history)
 
+    # Fixed Point Analysis
     if fpf_bool:
         print(f"Running final Fixed Point Analysis...")
         fixed_points_finder(model)
