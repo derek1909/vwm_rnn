@@ -254,17 +254,29 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     final_errors = [errors[-1] for errors in group_errors]
     final_activations = [activ[-1] for activ in group_activ]
 
-    plt.figure(figsize=(8, 6))
-    plt.plot(item_num, final_errors, marker='o', color=err_color, label='Last Error (rad)')
-    plt.plot(item_num, final_activations, marker='s', color=activ_color, label='Activation (Hz)')
-    plt.xlabel('Item Number')
-    plt.ylabel('Value')
-    plt.title('Error and Activation vs. Item Number')
-    plt.legend()
-    plt.grid(True)
-
-    # Save the final plot
+    # Save the final plot with two different y-axes
     final_plot_path = os.path.join(model_dir, 'error_activ_vs_itemnum.png')
+    fig, ax1 = plt.subplots(figsize=(8, 6))
+    
+    # Plot error on the primary y-axis (ax1)
+    line1, = ax1.plot(item_num, final_errors, marker='o', color=err_color, label='Last Error (rad)')
+    ax1.set_xlabel('Item Number')
+    ax1.set_ylabel('Last Error (rad)', color=err_color)
+    ax1.tick_params(axis='y', labelcolor=err_color)
+    ax1.grid(True)
+    
+    # Create a secondary y-axis for activation
+    ax2 = ax1.twinx()
+    line2, = ax2.plot(item_num, final_activations, marker='s', color=activ_color, label='Activation (Hz)')
+    ax2.set_ylabel('Activation (Hz)', color=activ_color)
+    ax2.tick_params(axis='y', labelcolor=activ_color)
+    
+    # Combine the legends from both axes
+    lines = [line1, line2]
+    labels = [line.get_label() for line in lines]
+    fig.legend(lines, labels, loc='lower center', ncol=2)
+    
+    plt.title('Error and Activation vs. Item Number')
     plt.savefig(final_plot_path, dpi=300)
     plt.close()
 
@@ -363,7 +375,6 @@ def plot_weights(model):
 
     print(f"All weight matrices plot saved at: {save_path}")
 
-from scipy.stats import gaussian_kde
 def plot_error_dist(model):
     """
     Plot the distribution of decoding errors for different item numbers after training.
@@ -433,13 +444,10 @@ def plot_error_dist(model):
         mask = input_presence[start_index:end_index].bool()
         sliced_angular_diff = angular_diff[start_index:end_index]
         err = sliced_angular_diff[mask].detach().cpu().numpy()
-        
-        if len(err) > 1:  # Ensure there is enough data for KDE
-            kde = gaussian_kde(err)
-            density = kde(x_values)
-            plt.plot(x_values, density, label=f'{item_num[i]} item(s)')
-        else:
-            print(f"Not enough data to plot KDE for group with {item_num[i]} item(s).")
+          
+        hist, bins = np.histogram(err, bins=x_values, density=True)
+        bin_centers = (bins[:-1] + bins[1:]) / 2
+        plt.plot(bin_centers, hist, label=f'{item_num[i]} item(s)')
 
         start_index = end_index
     
