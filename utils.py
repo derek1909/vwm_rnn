@@ -315,11 +315,12 @@ def load_model_and_history(model, model_dir, model_name="model", history_name="t
             model_path = f'{model_dir}/models/scripted_{model_name}.pt'
             if os.path.exists(model_path):
                 model = torch.jit.load(model_path, map_location=device)
+                model.device = device
         else:
             model_path = f'{model_dir}/models/{model_name}.pth'
             if os.path.exists(model_path):
                 model.load_state_dict(torch.load(model_path, weights_only=False, map_location=device))
-
+                model.device = device
     else:
         history = None
 
@@ -399,7 +400,7 @@ def plot_error_dist(model):
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
     
     # Generate random presence indicators
-    device = next(model.parameters()).device  # Use model device
+    # device = next(model.parameters()).device  # Use model device
     input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=False)
     start_index = 0
     for i, count in enumerate(trial_counts):
