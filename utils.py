@@ -251,6 +251,7 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
+    ## Summary Plot ##
     final_errors = [errors[-1] for errors in group_errors]
     final_activations = [activ[-1] for activ in group_activ]
 
@@ -264,13 +265,15 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     ax1.set_ylabel('Last Error (rad)', color=err_color)
     ax1.tick_params(axis='y', labelcolor=err_color)
     ax1.grid(True)
-    
+    ax1.set_ylim(bottom=0)  # Set lower limit to zero for ax1
+
     # Create a secondary y-axis for activation
     ax2 = ax1.twinx()
     line2, = ax2.plot(item_num, final_activations, marker='s', color=activ_color, label='Activation (Hz)')
     ax2.set_ylabel('Activation (Hz)', color=activ_color)
     ax2.tick_params(axis='y', labelcolor=activ_color)
-    
+    ax2.set_ylim(bottom=0)  # Set lower limit to zero for ax2
+
     # Combine the legends from both axes
     lines = [line1, line2]
     labels = [line.get_label() for line in lines]
@@ -311,7 +314,7 @@ def load_model_and_history(model, model_dir, model_name="model", history_name="t
         if use_scripted_model:
             model_path = f'{model_dir}/models/scripted_{model_name}.pt'
             if os.path.exists(model_path):
-                model = torch.jit.load(model_path)
+                model = torch.jit.load(model_path, map_location=device)
         else:
             model_path = f'{model_dir}/models/{model_name}.pth'
             if os.path.exists(model_path):
@@ -380,18 +383,14 @@ def plot_error_dist(model):
     Plot the distribution of decoding errors for different item numbers after training.
     This function visualizes the model's performance by comparing decoded angles with input angles.
     """
-
+    num_trials = 6000
     if max_item_num == 1:
-        num_trials = 2000
         item_num = [1]
     elif max_item_num == 2:
-        num_trials = 4000
         item_num = [1,2]
     elif max_item_num < 8:
-        num_trials = 5000
         item_num = list(range(1, max_item_num+1, 2))
     else:
-        num_trials = 5000
         item_num = [8, 4, 2, 1]
 
     # Split num_trials into len(item_num) groups
@@ -436,7 +435,7 @@ def plot_error_dist(model):
 
     # Plot error distribution
     plt.figure(figsize=(6, 5))
-    x_values = np.linspace(-np.pi, np.pi, 500)
+    x_values = np.linspace(-np.pi, np.pi, 100)
     
     start_index = 0
     for i, count in enumerate(trial_counts):
