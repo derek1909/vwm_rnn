@@ -17,7 +17,7 @@ def generate_target(presence, theta, stimuli_present=True):
     u_t = u_0 * (1 if stimuli_present else 0) 
     return u_t
 
-def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10):
+def generate_input(presence, theta, input_strength=40, noise_level=0.0, T_init=0, T_stimi=400, T_delay=0, T_decode=800, dt=10):
     """
     Generate a 3D input tensor of shape (steps, num_trials, 3 * max_item_num) without loops.
 
@@ -69,7 +69,7 @@ def generate_input(presence, theta, noise_level=0.0, T_init=0, T_stimi=400, T_de
     u_t_stack = u_0.unsqueeze(0) * stimuli_present_mask  # (steps, num_trials, 3 * max_item_num)
 
     # Swap dimensions 0 and 1 to get (num_trials, steps, 3 * max_item_num)
-    u_t_stack = u_t_stack.transpose(0, 1)
+    u_t_stack = u_t_stack.transpose(0, 1) * input_strength / max_item_num
 
     return u_t_stack
 
@@ -415,7 +415,7 @@ def plot_error_dist(model):
     input_thetas = (torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi
     
     # Generate input tensor
-    u_t = generate_input(input_presence, input_thetas, ILC_noise, T_init, T_stimi, T_delay, T_decode, dt)
+    u_t = generate_input(input_presence, input_thetas, input_strength, ILC_noise, T_init, T_stimi, T_delay, T_decode, dt)
 
     # Run simulation and slice the output
     r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)

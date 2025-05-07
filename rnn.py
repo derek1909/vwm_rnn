@@ -7,7 +7,7 @@ from typing import Optional, Tuple
 # from typeguard import typechecked  # For runtime type checking
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, dt=0.1, tau_min=50, tau_max=50, spike_noise_factor=0.0,
+    def __init__(self, max_item_num, num_neurons, dt=0.1, tau_min=50, tau_max=50, spike_noise_factor=0.0, saturation_firing_rate=60.0,
                  device='cpu', positive_input=True, dales_law=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
@@ -18,10 +18,11 @@ class RNNMemoryModel(nn.Module):
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
         self.positive_input = positive_input
+        self.saturation_firing_rate = saturation_firing_rate
         self.dales_law = dales_law
 
         # To make sure all models have same initialization.
-        torch.manual_seed(39)
+        # torch.manual_seed(39)
 
         # ---- Dale's law assignment ----
         if self.dales_law:
@@ -49,18 +50,22 @@ class RNNMemoryModel(nn.Module):
 
         # ---- Define input matrix ----
         if self.positive_input:
-            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num * 3, device=device)) * 8) # 8 is the inflection point of activation funciton
+            std = 0.418
+            self.B = nn.Parameter(torch.abs(torch.randn(num_neurons, max_item_num * 3, device=device)) * std)
         else:
-            self.B = nn.Parameter(torch.randn(num_neurons, max_item_num * 2, device=device) * 10)
+            std = 0.418 # This number is not verified for naive input.
+            self.B = nn.Parameter(torch.randn(num_neurons, max_item_num * 2, device=device) * std)
         
         # ---- Define non-negative weight matrix ----
         if self.dales_law:
-            self.W = nn.Parameter(torch.abs(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5))
+            std = 1 / (num_neurons * 0.682)**0.5
+            self.W = nn.Parameter(torch.abs(torch.randn(num_neurons, num_neurons, device=device) * std))
         else:
             self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
 
         # ---- Define readout matrix ----
-        self.F = nn.Parameter(torch.randn(max_item_num * 2, num_neurons, device=device) / num_neurons**0.5)
+        std = (2 / (num_neurons + max_item_num * 2))**0.5
+        self.F = nn.Parameter(torch.randn(max_item_num * 2, num_neurons, device=device) * std)
 
     def to(self, *args, **kwargs):
         super().to(*args, **kwargs)
@@ -77,7 +82,7 @@ class RNNMemoryModel(nn.Module):
         Returns:
             Tensor with same shape as x.
         """
-        return 8 * (1 + torch.tanh(0.4 * x - 3))
+        return self.saturation_firing_rate/2 * (1 + torch.tanh(0.14 * x - 4.2))
     
     def observed_r(self, r: torch.Tensor) -> torch.Tensor:
         """

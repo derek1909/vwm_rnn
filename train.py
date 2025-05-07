@@ -166,6 +166,7 @@ def train(model, model_dir, history=None):
             u_t = generate_input(
                 presence=input_presence,
                 theta=input_thetas,
+                input_strength=input_strength,
                 noise_level=ILC_noise,
                 T_init=T_init,
                 T_stimi=T_stimi,

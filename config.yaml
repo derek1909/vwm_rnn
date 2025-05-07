@@ -1,13 +1,15 @@
 model_params:
-  max_item_num: 2
-  item_num: [1,2]
+  max_item_num: 10
+  item_num: [1,2,3,4,5,6,7,8,9,10]
   num_neurons: 128
-  dt: 1
+  dt: 10
   tau_max: 300
-  tau_min: 10
+  tau_min: 50
   ILC_noise: 0.01
-  spike_noise_factor: 0.01
+  spike_noise_factor: 0.1
   positive_input: true
+  input_strength: 60
+  saturation_firing_rate: 60
   dales_law: true
   T_init: 20
   T_stimi: 500
@@ -16,20 +18,20 @@ model_params:
 
 training_params:
   train_rnn: true
-  load_history: true
+  load_history: false
   use_scripted_model: true
   num_iterations: 50000
   eta: 0.0001
-  lambda_reg: 0.0005
+  lambda_reg: 0.00001
   lambda_err: 1.0
-  num_trials: 128
+  num_trials: 512
   logging_period: 50
-  early_stop_patience: 200
-  adaptive_lr_patience: 100
+  early_stop_patience: 600
+  adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: "long_delay_short_tau"
-  cuda_device: 0
+  rnn_name: "Rescale_test_2"
+  cuda_device: 1
   plot_weights_bool: true
   error_dist_bool: true
   SNR_analy_bool: true

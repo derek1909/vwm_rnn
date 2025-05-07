@@ -37,6 +37,8 @@ tau_min = model_params["tau_min"]
 ILC_noise = model_params["ILC_noise"] # rad
 spike_noise_factor = model_params["spike_noise_factor"] # Hz
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
+input_strength = model_params["input_strength"] # mean value of Bu.
+saturation_firing_rate = model_params["saturation_firing_rate"] # mean value of Bu.
 dales_law = model_params["dales_law"]
 T_init = model_params["T_init"]
 T_stimi = model_params["T_stimi"]
@@ -61,7 +63,10 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
 rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}k{spike_noise_factor}'
-model_dir = f"rnn_models/{rnn_name}"
+if config_path == "./config.yaml":
+    model_dir = f"rnn_models/{rnn_name}"
+else:
+    model_dir = os.path.dirname(config_path)
 cuda_device = int(logging_params["cuda_device"])
 plot_weights_bool = logging_params["plot_weights_bool"]
 error_dist_bool = logging_params["error_dist_bool"]
@@ -89,4 +94,5 @@ else:
     device = 'cpu'  # Fallback to CPU if CUDA is not available
 
 print(f"rnn_name: {rnn_name}")
+print("Model directory:", model_dir)
 print(f"using device: {device}")
