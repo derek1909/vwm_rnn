@@ -49,14 +49,17 @@ def calc_eval_error(u_hat, target_thetas, presence):
     # Reshape u_hat into (steps, trials, max_items, 2)
     u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
 
+    # Avg over time
+    u_hat_reshaped = u_hat_reshaped.mean(dim=0) # (trials, max_items, 2)
+
     # Compute angles from decoded (cos, sin) pairs
-    cos_thetas = u_hat_reshaped[..., 0]  # (steps, trials, max_items)
-    sin_thetas = u_hat_reshaped[..., 1]  # (steps, trials, max_items)
-    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (steps, trials, max_items)
+    cos_thetas = u_hat_reshaped[..., 0]  # (trials, max_items)
+    sin_thetas = u_hat_reshaped[..., 1]  # (trials, max_items)
+    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (trials, max_items)
 
     # Compute angular difference
-    # (steps,trials,items) -> (trials,)
-    angular_diff = (target_thetas - decoded_thetas.mean(dim=0) + torch.pi) % (2 * torch.pi) - torch.pi  # (-pi,pi)
+    # (trials,items) -> (trials,)
+    angular_diff = (target_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi  # (-pi,pi)
     angular_error_per_trial = (angular_diff.abs() * presence).sum(dim=1) / presence.sum(dim=1)
 
     # Compute mean and variance of angular errors
