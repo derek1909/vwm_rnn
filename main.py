@@ -10,8 +10,8 @@ from utils import *
 from fixedpoint import fixed_points_finder, SNR_analysis
 
 if __name__ == "__main__":
-    model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_factor, device=device, positive_input=positive_input, dales_law=dales_law)
-
+    model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
+                           spike_noise_factor, saturation_firing_rate, device, positive_input, dales_law)
     if use_scripted_model:
         model = torch.jit.script(model)
 

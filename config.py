@@ -35,7 +35,8 @@ dt = model_params["dt"]
 tau_max = model_params["tau_max"]
 tau_min = model_params["tau_min"]
 ILC_noise = model_params["ILC_noise"] # rad
-spike_noise_factor = model_params["spike_noise_factor"] # Hz
+spike_noise_factor = model_params["spike_noise_factor"] # [0,1]. k = 1/sqrt(M) where M is  #neurons in a single artificial neuron.
+spike_noise_type = model_params["spike_noise_type"] # "gamma" or "normal"
 positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
 input_strength = model_params["input_strength"] # mean value of Bu.
 saturation_firing_rate = model_params["saturation_firing_rate"] # mean value of Bu.
@@ -50,7 +51,7 @@ simul_steps = int(T_simul/dt)
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
 load_history = training_params["load_history"]
-use_scripted_model = training_params["use_scripted_model"]
+use_scripted_model = training_params["use_scripted_model"] # Cannot be used anymore because gamma does not work with jit_script
 num_iterations = int(training_params["num_iterations"]) 
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty

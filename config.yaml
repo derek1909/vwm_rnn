@@ -7,6 +7,7 @@ model_params:
   tau_min: 50
   ILC_noise: 0.01
   spike_noise_factor: 0.1
+  spike_noise_type: 'gamma'
   positive_input: true
   input_strength: 60
   saturation_firing_rate: 60
@@ -19,7 +20,7 @@ model_params:
 training_params:
   train_rnn: true
   load_history: false
-  use_scripted_model: true
+  use_scripted_model: false
   num_iterations: 50000
   eta: 0.0001
   lambda_reg: 0.00001
@@ -30,8 +31,8 @@ training_params:
   adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: "Rescale_test_2"
-  cuda_device: 1
+  rnn_name: "GammaNoise"
+  cuda_device: 0
   plot_weights_bool: true
   error_dist_bool: true
   SNR_analy_bool: true

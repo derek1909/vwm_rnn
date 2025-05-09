@@ -7,7 +7,8 @@ from typing import Optional, Tuple
 # from typeguard import typechecked  # For runtime type checking
 
 class RNNMemoryModel(nn.Module):
-    def __init__(self, max_item_num, num_neurons, dt=0.1, tau_min=50, tau_max=50, spike_noise_factor=0.0, saturation_firing_rate=60.0,
+    def __init__(self, max_item_num, num_neurons, dt=0.1, tau_min=50, tau_max=50, 
+                 spike_noise_type="gamma", spike_noise_factor=0.0, saturation_firing_rate=60.0,
                  device='cpu', positive_input=True, dales_law=True):
         super(RNNMemoryModel, self).__init__()
         self.num_neurons = num_neurons
@@ -15,12 +16,24 @@ class RNNMemoryModel(nn.Module):
         self.tau_min = tau_min
         self.tau_max = tau_max
         self.spike_noise_factor = spike_noise_factor
+        self.spike_noise_type = spike_noise_type
         self.batch_first = True  # Required attribute to use FixedPointFinder
         self.device = device
         self.positive_input = positive_input
         self.saturation_firing_rate = saturation_firing_rate
         self.dales_law = dales_law
 
+        # ---- pick the noise function once, based on spike_noise_type ----
+        if spike_noise_type.lower() == "gamma":
+            self._noise_fn = self._gamma_noise
+        elif spike_noise_type.lower() == "gaussian":
+            self._noise_fn = self._gaussian_noise
+        else:
+            raise ValueError(
+                f"Unsupported spike_noise_type '{self.spike_noise_type}'. "
+                "Expected 'gamma' or 'gaussian'."
+            )
+    
         # To make sure all models have same initialization.
         # torch.manual_seed(39)
 
@@ -83,10 +96,26 @@ class RNNMemoryModel(nn.Module):
             Tensor with same shape as x.
         """
         return self.saturation_firing_rate/2 * (1 + torch.tanh(0.14 * x - 4.2))
-    
+
+    def _gaussian_noise(self, r: torch.Tensor) -> torch.Tensor:
+        # poisson‐like (Gaussian approximation)    
+        poisson_like_noise = self.spike_noise_factor * torch.sqrt(r * 1e3 / self.dt + 1e-10) * torch.randn_like(r, device=self.device)        
+        return F.relu(r + poisson_like_noise)
+
+    def _gamma_noise(self, r: torch.Tensor) -> torch.Tensor:
+        # poisson‐like (Gamma approximation)    
+        # r is size (batch_size, num_neurons)
+        lam = (self.dt/1e3) / self.spike_noise_factor**2
+        shape = torch.clamp(r * lam, min=1e-10)         #  -> (batch_size, num_neurons)
+        rate = torch.full_like(shape, lam)              #  -> (batch_size, num_neurons)
+        gamma = torch.distributions.Gamma(shape, rate)     
+        corrupted_r   = gamma.sample()                      #  -> (batch_size, num_neurons)
+        # import ipdb; ipdb.set_trace()
+        return corrupted_r
+
     def observed_r(self, r: torch.Tensor) -> torch.Tensor:
         """
-        Applies poisson-like noise to the firing rate and ensures non-negative values.
+        Applies poisson-like noise to the firing rate.
 
         Args:
             r: (batch_size, neuron) - firing rate.
@@ -94,8 +123,10 @@ class RNNMemoryModel(nn.Module):
         Returns:
             Tensor with same shape as r, after adding noise and applying ReLU.
         """
-        poisson_like_noise = self.spike_noise_factor * torch.sqrt(r * 1e3 / self.dt + 1e-10) * torch.randn_like(r, device=self.device)
-        return F.relu(r + poisson_like_noise)
+        corrupted_r = self._noise_fn(r)
+
+        return corrupted_r
+    
     
     def forward(self, u: torch.Tensor, r0: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
         """
