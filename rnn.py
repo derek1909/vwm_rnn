@@ -109,8 +109,7 @@ class RNNMemoryModel(nn.Module):
         shape = torch.clamp(r * lam, min=1e-10)         #  -> (batch_size, num_neurons)
         rate = torch.full_like(shape, lam)              #  -> (batch_size, num_neurons)
         gamma = torch.distributions.Gamma(shape, rate)     
-        corrupted_r   = gamma.sample()                      #  -> (batch_size, num_neurons)
-        # import ipdb; ipdb.set_trace()
+        corrupted_r = gamma.rsample()                      #  -> (batch_size, num_neurons)
         return corrupted_r
 
     def observed_r(self, r: torch.Tensor) -> torch.Tensor:
