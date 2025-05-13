@@ -109,7 +109,7 @@ from scipy.stats import chi2
 import matplotlib.patches as patches
 from matplotlib import cm
 
-def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt, num_trials, result_dir, true_orientation=None, num_neurons=5):
+def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt, num_trials, result_dir, true_orientation=None):
     """
     Parameters:
       r_output: Neural network output, shape (total_trials, steps, neurons)
@@ -118,7 +118,6 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
       dt: Time step (in seconds)
       num_trials: Number of randomly selected trials to plot trajectories
       true_orientation: Optional; a 2D point representing the true orientation.
-      num_neurons: Number of neurons to randomly select (from one of the chosen trials) for activity plotting.
       
     Functionality:
       1. Compute the decoded points for each trial (only first 2 components), resulting in shape (trials, steps, 2).
@@ -130,7 +129,7 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
       4. Save both plots to the provided result directory.
     """
 
-    # -------- Plot 1: Decoded Trajectories --------
+    # -------- Plot Decoded Trajectories --------
     # Compute the decoded points: shape -> (trials, steps, 2)
     decode_points = (np.matmul(r_output, F.T))[:, :, :2]
     
@@ -218,48 +217,6 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
     plt.savefig(traj_image_path, dpi=300)
     plt.close()
 
-    # -------- Plot 2: Neuron Activity vs. Time --------
-    # For demonstration, take the first selected trial from the trajectory selection.
-    trial_idx_for_neurons = selected_indices[0]
-    activity = r_output[trial_idx_for_neurons]  # shape (steps, neurons)
-    steps = activity.shape[0]
-    time = np.arange(steps) * dt  # time vector in seconds
-
-    total_neurons = activity.shape[1]
-    # Randomly select several neurons
-    selected_neurons = np.random.choice(total_neurons, size=num_neurons, replace=False)
-    
-    plt.figure(figsize=(10, 6))
-    
-    # Shade the different experimental phases
-    # Phase boundaries in seconds:
-    t_phase0 = 0
-    t_phase1 = T_init
-    t_phase2 = T_init + T_stimi
-    t_phase3 = T_init + T_stimi + T_delay
-    t_phase4 = T_init + T_stimi + T_delay + T_decode
-    
-    # Use axvspan for shading (only label the first occurrence to avoid duplicate legend entries)
-    plt.axvspan(t_phase0, t_phase1, color='lightgray', alpha=0.5, label='Init Phase')
-    plt.axvspan(t_phase1, t_phase2, color='lightblue', alpha=0.5, label='Stimuli Phase')
-    plt.axvspan(t_phase2, t_phase3, color='lightgreen', alpha=0.5, label='Delay Phase')
-    plt.axvspan(t_phase3, t_phase4, color='navajowhite', alpha=0.5, label='Decode Phase')
-    
-    # Plot firing rate vs. time for each selected neuron.
-    for neuron in selected_neurons:
-        plt.plot(time, activity[:, neuron], label=f'Neuron {neuron}', linewidth=1.5)
-    
-    plt.xlabel('Time (ms)')
-    plt.ylabel('Firing Rate (Hz)')
-    plt.title(f'Neuron Activity vs Time (Trial {trial_idx_for_neurons})')
-    plt.legend()
-    plt.grid(True)
-    
-    # Save the neuron activity plot
-    neuron_image_path = os.path.join(result_dir, 'neuron_activity.png')
-    plt.savefig(neuron_image_path, dpi=300)
-    plt.close()
-    
 
 def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt, model_dir):
     """
@@ -268,15 +225,17 @@ def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt
     saves results to disk, and returns the SNR values in dB.
     """
     # Prepare the states
-    u_t, r_output, thetas = prepare_state_snr(model, snr_item_num)
+    u_t, observed_r_output, thetas = prepare_state_snr(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt)
     
     # 1. Get true orientation from the first trial and convert to a 2D point (unit circle)
     true_orientation = thetas[0, 0].item()
     true_point = [math.cos(true_orientation), math.sin(true_orientation)]
     
     step_threshold = int((T_init + T_stimi + T_delay) / dt)
-    r_decode = r_output[:, step_threshold:, :].detach().numpy()  # (trials, steps, neuron)
-    F = model.F.detach().cpu().numpy().squeeze()  # (max_item_num*2, neurons)
+    r_decode = observed_r_output[:, step_threshold:, :]  # (trials, steps, neuron)
+    F = model.F.detach().cpu().numpy()  # (max_item_num*2, neurons)
+    W = (model.W * model.dales_sign.view(1, -1)).detach().cpu().numpy()
+    B = model.B.detach().cpu().numpy()
     
     # Decode points from the network (we only take the first 2 components)
     decode_points = (r_decode @ F.T)[:, :, :2]  # (trials, steps, 2)
@@ -321,9 +280,9 @@ def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt
         os.makedirs(snr_dir)
 
     # Plot sampled trajectories on the Fr plane
-    plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt,
-                             num_trials=1, result_dir=snr_dir, true_orientation=true_orientation)
-    
+    plot_decode_trajectories(observed_r_output, F, T_init, T_stimi, T_delay, T_decode, dt, num_trials=1,
+                             result_dir=snr_dir, true_orientation=true_orientation)
+    plot_input_n_activity(observed_r_output, u_t, W, B, T_init, T_stimi, T_delay, T_decode, snr_dir, dt)
     
     # -------- Plot 1: Non Time Averaged --------
     plt.figure(figsize=(8, 6))
