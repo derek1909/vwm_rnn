@@ -119,20 +119,24 @@ ax.set_xlim(0,2)
 ax.set_ylim(0,2)
 ax.set_zlim(0,2)
 
-ax.set_xticks([])
-ax.set_yticks([])
-ax.set_zticks([])
-ax.view_init(elev=15, azim=-80)  # Elevation and azimuth angle
+ax.tick_params(axis='both', which='major', labelsize=8, pad=2)  # smaller font and closer to axis
+ax.tick_params(axis='z', which='major', labelsize=8, pad=2)
+
+# ax.set_xticks([0.0, 1.0])
+# ax.set_yticks([])
+# ax.set_zticks([0.0, 1.0])
+
+ax.view_init(elev=20, azim=-80)  # Elevation and azimuth angle
 
 # ax.set_axis_off()  # Removes all axis elements (frame, ticks, labels)
-ax.grid(False)  # Removes grid
+# ax.grid(False)  # Removes grid
 
 ax.xaxis.line.set_color((1,1,1,0))  # Hide X-axis line
 ax.yaxis.line.set_color((1,1,1,0))  # Hide Y-axis line
 ax.zaxis.line.set_color((1,1,1,0))  # Hide Z-axis line
 
 # plt.show()
-plt.savefig('./other/input_PI_3d.png', dpi=300, bbox_inches='tight')
+plt.savefig('./other/input_PI_3d_again.png', dpi=300, bbox_inches='tight')
 
 # plt.show()
 
