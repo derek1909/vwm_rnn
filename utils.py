@@ -425,14 +425,9 @@ def plot_error_dist(model):
     torch.cuda.empty_cache()
 
     # Decode the output
-    u_hat = model.decode(r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
-    u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
-    
-    # Compute angles diff
-    cos_thetas = u_hat_reshaped[..., 0]  # (steps, trials, max_items)
-    sin_thetas = u_hat_reshaped[..., 1]  # (steps, trials, max_items)
-    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (steps, trials, max_items)
-    angular_diff = (input_thetas - decoded_thetas.mean(dim=0) + torch.pi) % (2 * torch.pi) - torch.pi  # (trials,items)
+    u_hat = model.readout(r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
+    decoded_thetas =  model.decode(u_hat)  # (trials, max_items)
+    angular_diff = (input_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi  # (trials,items)
 
     # Plot error distribution
     plt.figure(figsize=(6, 5))

@@ -10,12 +10,12 @@ from config import *
 from utils import save_model_and_history, generate_target, generate_input
 
 
-def calc_train_error(u_hat_stack, u_0, presence):
+def calc_train_error(u_hat, u_0, presence):
     """
     Calculate training error, variance of the error, and penalization.
 
     Args:
-        u_hat_stack (torch.Tensor): (steps, trials, max_items*2) Decoded outputs over time.
+        u_hat (torch.Tensor): (steps, trials, max_items*2) Readout of the model, unnormalised.
         u_0 (torch.Tensor): (trials, max_items*2) Ground truth target.
         presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
 
@@ -23,9 +23,17 @@ def calc_train_error(u_hat_stack, u_0, presence):
         mean_error (torch.Tensor): scalar. Mean error across trials.
         var_error (torch.Tensor): scalar. Variance of errors across trials.
     """
+    steps, trials, _ = u_hat.shape
+    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
+        
+    # Normalize the 2D representation of u_hat across the last dimension.
+    u_hat_reshaped_norm = u_hat_reshaped / torch.norm(u_hat_reshaped, dim=3, keepdim=True) # (steps, num_trials, max_items, 2)
+    u_hat_norm = u_hat_reshaped_norm.reshape(steps, trials, -1) # -> (steps, num_trials, max_items * 2)
+
     # Compute squared error for each trial
     expanded_presence = presence.repeat_interleave(2, dim=1)
-    error_per_trial = ((u_0 - u_hat_stack.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
+    # error_per_trial = ( ((u_0.unsqueeze(0) - u_hat_norm)**2 * expanded_presence).mean(dim=0) ).sum(dim=1) / presence.sum(dim=1) # -> (trials,)
+    error_per_trial = ((u_0 - u_hat_norm.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
 
     # Compute mean and variance of error across trials
     mean_error = error_per_trial.mean()
@@ -33,12 +41,12 @@ def calc_train_error(u_hat_stack, u_0, presence):
 
     return mean_error, var_error
 
-def calc_eval_error(u_hat, target_thetas, presence):
+def calc_eval_error(decoded_thetas, target_thetas, presence):
     """
     Calculate evaluation-specific angular error.
 
     Args:
-        u_hat (torch.Tensor): (steps, trials, max_items*2) Decoded outputs over time.
+        decoded_thetas (torch.Tensor): (trials, max_items) Decoded orientations.
         target_thetas (torch.Tensor): (trials, max_items) Ground truth angles.
         presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
 
@@ -46,17 +54,6 @@ def calc_eval_error(u_hat, target_thetas, presence):
         mean_ang_error (torch.Tensor): scalar. Mean angular error across trials.
         var_ang_error (torch.Tensor): scalar. Variance of angular errors across trials.
     """
-    # Reshape u_hat into (steps, trials, max_items, 2)
-    u_hat_reshaped = u_hat.view(u_hat.shape[0], u_hat.shape[1], -1, 2)
-
-    # Avg over time
-    u_hat_reshaped = u_hat_reshaped.mean(dim=0) # (trials, max_items, 2)
-
-    # Compute angles from decoded (cos, sin) pairs
-    cos_thetas = u_hat_reshaped[..., 0]  # (trials, max_items)
-    sin_thetas = u_hat_reshaped[..., 1]  # (trials, max_items)
-    decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (trials, max_items)
-
     # Compute angular difference
     # (trials,items) -> (trials,)
     angular_diff = (target_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi  # (-pi,pi)
@@ -91,7 +88,7 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
     step_threshold = int((T_init + T_stimi + T_delay) / dt)
     r_decode = r_stack[step_threshold:, :, :]
     num_steps, num_trials, num_neurons = r_decode.shape
-    u_hat = model.decode(r_decode.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1)
+    u_hat = model.readout(r_decode.reshape(-1, num_neurons)).reshape(num_steps, num_trials, -1) # (steps, trial, max_items*2)
 
     # Generate target outputs (ground truth for training loss)
     u_0 = generate_target(presence, target_thetas, stimuli_present=True)
@@ -103,10 +100,11 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
         mean_train_error, var_train_error = torch.nan, torch.nan
 
     # Calculate evaluation error (angular)
-    mean_eval_error, var_eval_error = calc_eval_error(u_hat, target_thetas, presence)
+    decoded_thetas = model.decode(u_hat) # -> (trial, max_items)
+    mean_eval_error, var_eval_error = calc_eval_error(decoded_thetas, target_thetas, presence)
 
     # Calculate activation penalty (using all time steps)
-    activ_penalty =  r_stack.abs().mean()
+    activ_penalty = r_stack.abs().mean()
 
     return mean_train_error, var_train_error, mean_eval_error, var_eval_error, activ_penalty
 
@@ -146,6 +144,7 @@ def train(model, model_dir, history=None):
     remaining_trials = num_trials % len(item_num)  # Handle leftover trials
     # Adjust trials count for each group (distribute leftovers)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
+    # torch.autograd.set_detect_anomaly(True)
 
     with tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") as pbar_iteration:
         for iteration in range(start_iteration, num_iterations):

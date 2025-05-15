@@ -53,7 +53,7 @@ class RNNMemoryModel(nn.Module):
         # Log-space sampling for tau: (tau_min ~ tau_max) ms
         tau = self.tau_min * torch.exp(torch.rand(num_neurons, device=device) * math.log(self.tau_max / self.tau_min))
         if self.dales_law:
-            # Only sort tau when Dale's law is enabled.
+            # Sort tau separately for E and I neurons when Dale's law is enabled.
             num_excitatory = int(num_neurons * 0.5)
             tau[:num_excitatory], _ = torch.sort(tau[:num_excitatory])
             tau[num_excitatory:], _ = torch.sort(tau[num_excitatory:])
@@ -69,11 +69,13 @@ class RNNMemoryModel(nn.Module):
             std = 0.418 # This number is not verified for naive input.
             self.B = nn.Parameter(torch.randn(num_neurons, max_item_num * 2, device=device) * std)
         
-        # ---- Define non-negative weight matrix ----
+        # ---- Define weight matrix ----
         if self.dales_law:
+            # non-negative W
             std = 1 / (num_neurons * 0.682)**0.5
             self.W = nn.Parameter(torch.abs(torch.randn(num_neurons, num_neurons, device=device) * std))
         else:
+            # When Dale's law is disabled, there is no positive restriction on weights
             self.W = nn.Parameter(torch.randn(num_neurons, num_neurons, device=device) / num_neurons**0.5)
 
         # ---- Define readout matrix ----
@@ -175,22 +177,39 @@ class RNNMemoryModel(nn.Module):
         return r_output, r.unsqueeze(0)
     
     @torch.jit.export
-    def decode(self, r: torch.Tensor) -> torch.Tensor:
+    def readout(self, r: torch.Tensor) -> torch.Tensor:
         """
-        Decodes the input firing rates (r) into a normalized output representation using observed_r.
+        Decodes the input firing rates (r) into an output representation u_hat using observed_r.
 
         Args:
-            r : Firing rate matrix of shape (num_trials, num_neurons)
+            r : Firing rate matrix of shape (batch_size, num_neurons)
         
         Returns:
-            torch.Tensor: Decoded output of shape (num_trials, input_size) where input_size = (max_item_num * 2)
+            torch.Tensor: Decoded output of shape (batch_size, max_item_num * 2)
         """
-        # (num_trials, input_size/2, 2)
-        u_hat = (self.F @ self.observed_r(r).T).T.view(r.size(0), -1, 2)
-        
-        # Normalize the 2D representation of u_hat across the last dimension.
-        normalized_u_hat = u_hat / torch.norm(u_hat, dim=2, keepdim=True)
-        
-        # Reshape normalized_u_hat into a flat representation.
-        # (num_trials, input_size)
-        return normalized_u_hat.view(r.size(0), -1)
+        # (batch_size, max_item_num * 2)
+        return (self.F @ self.observed_r(r).T).T
+    
+    @torch.jit.export
+    def decode(self, u_hat: torch.Tensor) -> torch.Tensor:
+        """
+        Decode 2D vector representations (b*cos, b*sin) into angles.
+
+        Args:
+            u_hat: Tensor of shape (steps, trials, max_items * 2), containing
+                unnormalised cosine and sine components for each item over time and trials.
+
+        Returns:
+            Tensor of shape (trials, max_items) with decoded angles in radians.
+        """
+        u_hat_reshaped = u_hat.reshape(u_hat.shape[0], u_hat.shape[1], -1, 2) # -> (steps, trials, max_items, 2)
+
+        # Avg over time
+        u_hat_reshaped = u_hat_reshaped.mean(dim=0) # (trials, max_items, 2)
+
+        # Compute angles from decoded (b*cos, b*sin) pairs
+        cos_thetas = u_hat_reshaped[..., 0]  # (trials, max_items)
+        sin_thetas = u_hat_reshaped[..., 1]  # (trials, max_items)
+        decoded_thetas = torch.atan2(sin_thetas, cos_thetas)  # (trials, max_items)
+
+        return decoded_thetas
