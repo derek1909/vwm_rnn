@@ -23,17 +23,17 @@ def calc_train_error(u_hat, u_0, presence):
         mean_error (torch.Tensor): scalar. Mean error across trials.
         var_error (torch.Tensor): scalar. Variance of errors across trials.
     """
-    steps, trials, _ = u_hat.shape
-    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
+    # steps, trials, _ = u_hat.shape
+    # u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
         
-    # Normalize the 2D representation of u_hat across the last dimension.
-    u_hat_reshaped_norm = u_hat_reshaped / torch.norm(u_hat_reshaped, dim=3, keepdim=True) # (steps, num_trials, max_items, 2)
-    u_hat_norm = u_hat_reshaped_norm.reshape(steps, trials, -1) # -> (steps, num_trials, max_items * 2)
+    # # Normalize the 2D representation of u_hat across the last dimension.
+    # u_hat_reshaped_norm = u_hat_reshaped / torch.norm(u_hat_reshaped, dim=3, keepdim=True) # (steps, num_trials, max_items, 2)
+    # u_hat_norm = u_hat_reshaped_norm.reshape(steps, trials, -1) # -> (steps, num_trials, max_items * 2)
 
     # Compute squared error for each trial
     expanded_presence = presence.repeat_interleave(2, dim=1)
     # error_per_trial = ( ((u_0.unsqueeze(0) - u_hat_norm)**2 * expanded_presence).mean(dim=0) ).sum(dim=1) / presence.sum(dim=1) # -> (trials,)
-    error_per_trial = ((u_0 - u_hat_norm.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
+    error_per_trial = ((u_0 - u_hat.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
 
     # Compute mean and variance of error across trials
     mean_error = error_per_trial.mean()
