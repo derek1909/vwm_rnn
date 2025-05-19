@@ -28,6 +28,8 @@ def calc_train_error(u_hat, u_0, presence):
         
     # # Normalize the 2D representation of u_hat across the last dimension.
     # u_hat_reshaped_norm = u_hat_reshaped / torch.norm(u_hat_reshaped, dim=3, keepdim=True) # (steps, num_trials, max_items, 2)
+    # u_hat_reshaped_norm = F.normalize(u_hat_reshaped, dim=-1)   # shape (steps, trials, items, 2)
+
     # u_hat_norm = u_hat_reshaped_norm.reshape(steps, trials, -1) # -> (steps, num_trials, max_items * 2)
 
     # Compute squared error for each trial
@@ -40,6 +42,50 @@ def calc_train_error(u_hat, u_0, presence):
     var_error = error_per_trial.var()
 
     return mean_error, var_error
+
+
+def calc_train_error_PsySim(u_hat, u_0, presence):
+    """
+    Calculate training error, variance of the error, and penalization.
+
+    Args:
+        u_hat (torch.Tensor): (steps, trials, max_items*2) Readout of the model, unnormalised.
+        u_0 (torch.Tensor): (trials, max_items*2) Ground truth target.
+        presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
+
+    Returns:
+        mean_error (torch.Tensor): scalar. Mean error across trials.
+        var_error (torch.Tensor): scalar. Variance of errors across trials.
+    """
+    steps, trials, _ = u_hat.shape
+    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
+    u_0_reshaped = u_0.reshape(trials, -1, 2) # (num_trials, max_items, 2)
+
+    # 1) Normalize both to unit length along the last dim
+    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)   # shape (steps, trials, items, 2)
+
+    # 2) Avg over time
+    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # (num_trials, max_items, 2)
+
+    # 3) Compute cosine of the angular error 
+    dot = torch.sum(u_0_reshaped * u_hat_reshaped_norm_mean, dim=-1)  # (trials, items)
+    # clamp for numerical stability
+    # dot = torch.clamp(dot, -1.0, 1.0)           # (trials, items)
+
+    # 4) Recover Δθ and similarity S(Δθ)
+    delta = torch.acos(dot)                    # in radians. [0, pi]
+    similarity = 1*torch.exp(-5 * delta / torch.pi)  # (trials, items)
+
+    # 5) Final loss =  − S
+    error_per_trial = (- similarity*presence).sum(dim=1) / presence.sum(dim=1)   # -> (trials,)
+
+    # Compute mean and variance of error across trials
+    mean_error = error_per_trial.mean()
+    var_error = error_per_trial.var()
+
+    return mean_error, var_error
+
+
 
 def calc_eval_error(decoded_thetas, target_thetas, presence):
     """
@@ -95,7 +141,7 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
 
     # Calculate training error if enabled
     if train_err:
-        mean_train_error, var_train_error = calc_train_error(u_hat, u_0, presence)
+        mean_train_error, var_train_error = calc_train_error_PsySim(u_hat, u_0, presence)
     else:
         mean_train_error, var_train_error = torch.nan, torch.nan
 
