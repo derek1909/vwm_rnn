@@ -264,7 +264,7 @@ ANALYSES = {
     "error_dist": {
         "enabled": True,
         "function": analyze_error_dist,
-        "save_folder": os.path.join(model_folder, "ErrorDistEvolution"),
+        "save_folder": os.path.join(base_folder, "error_dist/ErrorDistEvolution"),
         "gif_name": "ErrorDistEvolution.gif",
         "requires_input": False,
     },
@@ -358,7 +358,7 @@ def main():
             continue
         gif_name = analysis["gif_name"]
         frames = [imageio.v2.imread(f) for f in png_paths[name]]
-        gif_path = os.path.join(base_folder, gif_name)
+        gif_path = os.path.join(analysis["save_folder"], gif_name)
         imageio.v2.mimsave(gif_path, frames, duration=1)
         print(f"Created {name} evolution GIF: {gif_path}")
 
