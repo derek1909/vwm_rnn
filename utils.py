@@ -1,9 +1,9 @@
 import torch
 import matplotlib.pyplot as plt
-import os
 import json
 import numpy as np
-from math import sqrt
+import math
+import os, gc, yaml
 
 from rnn import *
 from config import *
@@ -50,9 +50,9 @@ def generate_input(presence, theta, input_strength=40, noise_level=0.0, T_init=0
     # Then multiply by presence to zero-out absent items
     if positive_input:
         u_0 = ( torch.stack((
-                    1 + cos_theta / sqrt(2) + sin_theta / sqrt(6), 
-                    1 - cos_theta / sqrt(2) + sin_theta / sqrt(6),
-                    1 - 2 * sin_theta / sqrt(6),
+                    1 + cos_theta / math.sqrt(2) + sin_theta / math.sqrt(6), 
+                    1 - cos_theta / math.sqrt(2) + sin_theta / math.sqrt(6),
+                    1 - 2 * sin_theta / math.sqrt(6),
                 ), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 3)
     else:
         u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 2)
@@ -381,84 +381,226 @@ def plot_weights(model):
 
 def plot_error_dist(model):
     """
-    Plot the distribution of decoding errors for different item numbers after training.
-    This function visualizes the model's performance by comparing decoded angles with input angles.
+    Plot error histograms for each set size.  Optionally (fit_mixture_bool=True)
+    fit a von-Mises + uniform mixture and save parameters + figure.
     """
-    num_trials = 6000
-    if max_item_num == 1:
-        item_num = [1]
-    elif max_item_num == 2:
-        item_num = [1,2]
-    elif max_item_num < 8:
-        item_num = list(range(1, max_item_num+1, 2))
-    else:
-        item_num = [8, 4, 2, 1]
+    # ------------------ bookkeeping / dirs ------------------
+    out_dir = f'{model_dir}/error_dist'
+    os.makedirs(out_dir, exist_ok=True)
+    hist_png  = f'{out_dir}/error_hist.png'
+    fit_png   = f'{out_dir}/error_fit.png'
+    yaml_path = f'{out_dir}/fit_summary.yaml'
+
+    # ------------------ generate test data ------------------
+    torch.cuda.empty_cache()
+    num_trials = 8000
+    if   max_item_num == 1:  item_num = [1]
+    elif max_item_num == 2:  item_num = [1, 2]
+    elif max_item_num < 8:   item_num = list(range(1, max_item_num + 1, 2))
+    else:                    item_num = [8, 4, 2, 1]
 
     # Split num_trials into len(item_num) groups
     trials_per_group = num_trials // len(item_num)
     remaining_trials = num_trials % len(item_num)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
-    
-    # Generate random presence indicators
-    # device = next(model.parameters()).device  # Use model device
+
+    # ---- random presence matrix ----
     input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=False)
-    start_index = 0
-    for i, count in enumerate(trial_counts):
-        end_index = start_index + count
-        one_hot_indices = torch.stack([
-            torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)
-        ])
-        input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
-        start_index = end_index
-    
-    # Generate random input angles
-    input_thetas = (torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi
-    
-    # Generate input tensor
-    u_t = generate_input(input_presence, input_thetas, input_strength, ILC_noise, T_init, T_stimi, T_delay, T_decode, dt)
+    start = 0
+    for idx, cnt in enumerate(trial_counts):
+        end   = start + cnt
+        one_hot_inds  = torch.stack([
+            torch.randperm(max_item_num, device=device)[:item_num[idx]]
+            for _ in range(cnt)])
+        input_presence[start:end] = input_presence[start:end].scatter(1, one_hot_inds, 1)
+        start = end
 
-    # Run simulation and slice the output
-    r_output, _ = model(u_t, r0=None)  # (trial, steps, neuron)
-    step_threshold = int((T_init + T_stimi + T_delay) / dt)
-    r_decode = r_output[:, step_threshold:, :].transpose_(0, 1).clone()  # (steps_for_loss, trial, neuron)
-    del r_output    # delete r_output as it can be up to 8GB
-    torch.cuda.empty_cache()
+    # ---- random orientation & input tensor ----
+    input_thetas = (torch.rand(num_trials, max_item_num, device=device) * 2*torch.pi) - torch.pi
+    u_t          = generate_input(input_presence, input_thetas,
+                                  input_strength, ILC_noise,
+                                  T_init, T_stimi, T_delay, T_decode, dt)
 
-    # Decode the output
-    u_hat = model.readout(r_decode.reshape(-1, num_neurons)).reshape(r_decode.shape[0], num_trials, -1)
-    decoded_thetas =  model.decode(u_hat)  # (trials, max_items)
-    angular_diff = (input_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi  # (trials,items)
+    # ------------------ forward pass ------------------
+    with torch.no_grad():
+        r_out, _   = model(u_t, r0=None)                 # (trial, steps, neuron)
+    step_thr  = int((T_init + T_stimi + T_delay) / dt)
+    r_decode  = r_out[:, step_thr:, :].permute(1, 0, 2).clone()  # (steps_for_loss, trial, neuron)
+    del r_out, u_t; torch.cuda.empty_cache(); gc.collect()
 
-    # Plot error distribution
-    plt.figure(figsize=(6, 5))
-    x_values = np.linspace(-np.pi, np.pi, 100)
-    
-    start_index = 0
-    for i, count in enumerate(trial_counts):
-        end_index = start_index + count
-        mask = input_presence[start_index:end_index].bool()
-        sliced_angular_diff = angular_diff[start_index:end_index]
-        err = sliced_angular_diff[mask].detach().cpu().numpy()
-          
-        hist, bins = np.histogram(err, bins=x_values, density=True)
-        bin_centers = (bins[:-1] + bins[1:]) / 2
-        plt.plot(bin_centers, hist, label=f'{item_num[i]} item(s)')
+    # ---- decode ----
+    u_hat         = model.readout(r_decode.reshape(-1, num_neurons))  # (steps_for_loss*trial, max_item_num * 2)
+    decoded_theta = model.decode(u_hat.reshape(r_decode.shape[0], num_trials, -1))  # (trials, max_items)
+    angular_diff  = (input_thetas - decoded_theta + torch.pi) % (2*torch.pi) - torch.pi  # (trials, max_items)
+    del r_decode, u_hat; torch.cuda.empty_cache(); gc.collect()
 
-        start_index = end_index
-    
+    # ------------------ plot: raw histograms ------------------
+    fig_raw = plt.figure(figsize=(6, 5))
+    x_vals  = np.linspace(-np.pi, np.pi, 100)
+    colors  = plt.rcParams['axes.prop_cycle'].by_key()['color']
+
+    err_sets, summary = [], {}   # keep per-condition errors for later fitting
+    start = 0
+    for idx, cnt in enumerate(trial_counts):
+        end  = start + cnt
+        mask = input_presence[start:end].bool()
+        err  = angular_diff[start:end][mask].detach().cpu().numpy()
+        err_sets.append(err)
+
+        hist, bins = np.histogram(err, bins=x_vals, density=True)
+        centers    = 0.5*(bins[:-1] + bins[1:])
+        plt.plot(centers, hist, label=f'{item_num[idx]} item(s)', color=colors[idx])
+
+        # err is your 1D numpy array of angles in [-π,π]
+        C = np.mean(np.cos(err))
+        S = np.mean(np.sin(err))
+        Rbar = np.hypot(C, S)
+        Rbar = np.clip(Rbar, 1e-12, 0.999999)                            # mean resultant length
+        raw_circ_sd = math.sqrt(-2.0 * math.log(Rbar))
+
+        summary[item_num[idx]] = {
+            "raw_line_std": float(err.std(ddof=1)),              # sample std (linear)
+            "raw_circ_std": raw_circ_sd                          # sample std (circular)
+        }
+        start = end
+
     plt.xlim(-np.pi, np.pi)
-    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi], 
-            [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
-
-    plt.xlabel('Angular Error (radians)')
+    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi],
+               [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+    plt.xlabel('Angular Error (rad)')
     plt.ylabel('Probability Density')
-    plt.legend()
     plt.title('Distribution of Decoding Errors')
+    plt.legend()
     plt.ylim(bottom=0)
-    
-    # Save the plot
-    file_path = os.path.join(model_dir, 'error_distrib.png')
-    plt.savefig(file_path, dpi=300)
-    plt.close()
+    fig_raw.tight_layout()
+    fig_raw.savefig(hist_png, dpi=300)
+    plt.close(fig_raw)
+    print(f"Raw histograms saved to: {hist_png}")
 
-    print(f"Error Distribution Plot saved at: {file_path}")
+    # ==================================================================
+    # =========================  mixture fitting  ======================
+    # ==================================================================
+    if not fit_mixture_bool:
+        return
+
+    # ---------- helper: VM + uniform negative-log-likelihood ----------
+    def fit_vm_uniform(torch_errs, init_w=0.5, init_kappa=5.0,
+                       lr=5e-2, epochs=800):
+        raw_w     = torch.tensor([torch.logit(torch.tensor(init_w))],
+                                 requires_grad=True, device=device)
+        raw_kappa = torch.tensor([init_kappa], device=device, requires_grad=True)
+
+        optim = torch.optim.Adam([raw_w, raw_kappa], lr=lr)
+        log_2pi = torch.log(torch.tensor(2 * math.pi, device=device))
+        for _ in range(epochs):
+            optim.zero_grad()
+            w     = torch.sigmoid(raw_w)                        # (0,1)
+            kappa = torch.nn.functional.softplus(raw_kappa)     # >0
+
+            log_vm   = kappa*torch.cos(torch_errs) \
+                       - log_2pi \
+                       - torch.log(torch.special.i0(kappa))
+            log_unif = -log_2pi
+
+            a = torch.log(w)       + log_vm
+            b = torch.log1p(-w)    + log_unif
+            m = torch.max(a,b)
+            logp = m + torch.log(torch.exp(a-m) + torch.exp(b-m))
+            nll  = -logp.mean()
+            nll.backward(); optim.step()
+
+        return torch.sigmoid(raw_w).item(), torch.nn.functional.softplus(raw_kappa).item()
+
+    # ---------- perform fits & create overlay plot ----------
+    fig_fit = plt.figure(figsize=(6, 5))
+    x_dense = torch.linspace(-np.pi, np.pi, 512, device=device)
+
+    for idx, err_np in enumerate(err_sets):
+        errs = torch.from_numpy(err_np).to(device).float()
+
+        w, kappa = fit_vm_uniform(errs)
+        summary[item_num[idx]].update({"w": w, "kappa": kappa})
+
+        # empirical hist for overlay
+        hist, bins = np.histogram(err_np, bins=x_vals, density=True)
+        centers    = 0.5*(bins[:-1] + bins[1:])
+        plt.plot(centers, hist, label=f'{item_num[idx]} item(s)', color=colors[idx])
+
+        # fitted curve
+        vm  = (torch.exp(kappa*torch.cos(x_dense)) /
+               (2*torch.pi*torch.special.i0(torch.tensor(kappa, device=device))))
+        unif = 1/(2*np.pi)
+        pdf  = w*vm + (1-w)*unif
+        plt.plot(x_dense.cpu().numpy(), pdf.cpu().numpy(),
+                 '--', color=colors[idx], alpha=0.8,
+                 label=f'{item_num[idx]} item(s) • fit')
+
+    plt.xlim(-np.pi, np.pi)
+    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi],
+               [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+    plt.xlabel('Angular Error (rad)')
+    plt.ylabel('Probability Density')
+    plt.title('Error Histograms with VM + Uniform Fits')
+    plt.legend(ncol=2, fontsize=8)
+    plt.ylim(bottom=0)
+    fig_fit.tight_layout()
+    fig_fit.savefig(fit_png, dpi=300)
+    plt.close(fig_fit)
+    print(f"Fit overlay figure saved to: {fit_png}")
+
+    # ---------- save YAML summary ----------
+    with open(yaml_path, 'w') as f:
+        yaml.safe_dump(summary, f, sort_keys=False, default_flow_style=False)
+    print(f"Fit parameters saved to: {yaml_path}")
+
+    # tidy GPU
+    del angular_diff, input_presence, input_thetas
+    torch.cuda.empty_cache(); gc.collect()
+
+    # ----------------------------------------------------------
+    # ----------  raw-vs-mixture circular standard dev  --------
+    # ----------------------------------------------------------
+
+    # helper: circular SD from mean resultant length R̄
+    def circ_sd(Rbar: float) -> float:
+        Rbar = max(min(Rbar, 0.999999), 1e-12)      # clamp to (0,1)
+        return math.sqrt(-2.0 * math.log(Rbar))
+
+    item_sizes = sorted(summary.keys())             # e.g. [1,2,4,8]
+    raw_line_sds    = [summary[n]['raw_line_std'] for n in item_sizes]
+    raw_circ_sds    = [summary[n]['raw_circ_std'] for n in item_sizes]
+    mix_vm_sds    = []
+
+    for n in item_sizes:
+        w      = summary[n]['w']
+        kappa  = summary[n]['kappa']
+
+        # mean resultant length of the von-Mises part: R = I1/I0
+        R      = (torch.special.i1(torch.tensor(kappa)) /
+                torch.special.i0(torch.tensor(kappa))).item()
+        # Rbar   = w * R                               # uniform part contributes 0
+        sd_cm  = circ_sd(R)                       # circular SD of mixture
+
+        summary[n]['mix_vm_circ_std'] = sd_cm
+        mix_vm_sds.append(sd_cm)
+
+    # ----------  SD comparison figure  ----------
+    fig_sd = plt.figure(figsize=(5, 4))
+    plt.plot(item_sizes, raw_line_sds, 'o-',  label='Empirical linear SD')
+    plt.plot(item_sizes, raw_circ_sds, 'o-',  label='Empirical circular SD')
+    plt.plot(item_sizes, mix_vm_sds, 's--', label='Mixture SD')
+    plt.xlabel('Number of items')
+    plt.ylabel('Circular SD (rad)')
+    plt.title('Raw vs. Mixture Circular SD')
+    plt.legend()
+    plt.tight_layout()
+
+    sd_png = f'{out_dir}/sd_compare.png'
+    fig_sd.savefig(sd_png, dpi=300)
+    plt.close(fig_sd)
+    print(f"SD comparison figure saved to: {sd_png}")
+
+    # ----------  (re)write YAML including cm_std  ----------
+    with open(yaml_path, 'w') as f:
+        yaml.safe_dump(summary, f, sort_keys=False, default_flow_style=False)
+    print(f"Fit parameters (incl. cm_std) saved to: {yaml_path}")

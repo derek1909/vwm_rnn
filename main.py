@@ -30,14 +30,14 @@ if __name__ == "__main__":
         print(f"Running final Fixed Point Analysis...")
         fixed_points_finder(model)
 
+    # Plot error distribution plots
+    if error_dist_bool:
+        plot_error_dist(model)
+
     with torch.no_grad():
         # Plot weights
         if plot_weights_bool:
             plot_weights(model)
-
-        # Plot error distribution plots
-        if error_dist_bool:
-            plot_error_dist(model)
 
         # Plot training curves
         if history:
