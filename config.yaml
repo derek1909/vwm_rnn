@@ -9,7 +9,7 @@ model_params:
   spike_noise_factor: 0.1
   spike_noise_type: 'gamma'
   positive_input: true
-  input_strength: 60
+  input_strength: 100
   saturation_firing_rate: 60
   dales_law: true
   T_init: 20
@@ -22,8 +22,9 @@ training_params:
   load_history: false
   use_scripted_model: false
   num_iterations: 50000
+  error_def: 'sqrtl2'
   eta: 0.0001
-  lambda_reg: 0.00001
+  lambda_reg: 0.0001
   lambda_err: 1.0
   num_trials: 512
   logging_period: 50
@@ -31,7 +32,7 @@ training_params:
   adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: "GammaNoise"
+  rnn_name: "l2loss"
   cuda_device: 0
   plot_weights_bool: true
   error_dist_bool: true

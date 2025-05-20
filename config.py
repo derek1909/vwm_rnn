@@ -53,6 +53,7 @@ train_rnn = training_params["train_rnn"]  # Set to True if training is required
 load_history = training_params["load_history"]
 use_scripted_model = training_params["use_scripted_model"] # Cannot be used anymore because gamma does not work with jit_script
 num_iterations = int(training_params["num_iterations"]) 
+error_def = training_params["error_def"] # select training loss function.
 eta = training_params["eta"] # learning_rate
 lambda_reg = training_params["lambda_reg"]  # coeff for activity penalty
 lambda_err = training_params["lambda_err"]  # coeff for error penalty
@@ -85,7 +86,6 @@ destination_path = os.path.join(model_dir, os.path.basename(config_path))
 if os.path.realpath(config_path) != os.path.realpath(destination_path):
     shutil.copyfile(config_path, destination_path)
 
-
 if torch.cuda.is_available():
     torch.cuda.set_device(cuda_device)
     device = f'cuda:{cuda_device}'
@@ -93,5 +93,5 @@ else:
     device = 'cpu'  # Fallback to CPU if CUDA is not available
 
 print(f"rnn_name: {rnn_name}")
-print("Model directory:", model_dir)
+print(f"Model directory: {model_dir}")
 print(f"using device: {device}")
