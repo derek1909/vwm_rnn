@@ -388,7 +388,8 @@ def plot_error_dist(model):
     out_dir = f'{model_dir}/error_dist'
     os.makedirs(out_dir, exist_ok=True)
     hist_png  = f'{out_dir}/error_hist.png'
-    fit_png   = f'{out_dir}/error_fit.png'
+    vm_fit_png   = f'{out_dir}/vm_error_fit.png'
+    gauss_fit_png   = f'{out_dir}/gauss_error_fit.png'
     yaml_path = f'{out_dir}/fit_summary.yaml'
 
     # ------------------ generate test data ------------------
@@ -511,15 +512,72 @@ def plot_error_dist(model):
 
         return torch.sigmoid(raw_w).item(), torch.nn.functional.softplus(raw_kappa).item()
 
-    # ---------- perform fits & create overlay plot ----------
-    fig_fit = plt.figure(figsize=(6, 5))
+    # ---------- helper: Gaussian + uniform negative-log-likelihood ----------
+    def fit_gauss_uniform(torch_errs,
+                        init_w=0.5,          # mixture weight on the Gaussian
+                        init_sigma=0.5,      # Gaussian std-dev (rad)
+                        lr=5e-2,
+                        epochs=800):
+        """
+        Maximum-likelihood fit of a mixture model:
+            p(err) = w  ·  N(0, σ²)  +  (1-w) · U(-π, π)
+
+        Returns
+        -------
+        w, sigma : torch.Tensor scalars (on the current device)
+        nll      : final mean negative log-likelihood
+        """
+        # ── unconstrained parameters ──────────────────────────────────────────
+        raw_w     = torch.tensor([torch.logit(torch.tensor(init_w))],
+                                requires_grad=True, device=torch_errs.device)
+        raw_sigma = torch.tensor([init_sigma],
+                                requires_grad=True, device=torch_errs.device)
+
+        optimiser = torch.optim.Adam([raw_w, raw_sigma], lr=lr)
+        log_2pi   = torch.log(torch.tensor(2 * math.pi, device=torch_errs.device))
+
+        for _ in range(epochs):
+            optimiser.zero_grad()
+
+            # positive / bounded re-parameterisations
+            w     = torch.sigmoid(raw_w)                 # 0 < w < 1
+            sigma = torch.nn.functional.softplus(raw_sigma)  # σ > 0
+            inv_2sigma2 = 0.5 / (sigma * sigma)
+
+            # log-pdf of N(0,σ²)  (vectorised over err)
+            log_gauss = (
+                - inv_2sigma2 * torch_errs.pow(2)
+                - torch.log(sigma)
+                - 0.5 * log_2pi
+            )
+
+            # log-pdf of U(-π,π)
+            log_unif = -log_2pi
+
+            # numerically stable log-sum-exp for mixture
+            a = torch.log(w)      + log_gauss
+            b = torch.log1p(-w)   + log_unif
+            m = torch.max(a, b)
+            logp = m + torch.log(torch.exp(a - m) + torch.exp(b - m))
+
+            nll = -logp.mean()
+            nll.backward()
+            optimiser.step()
+
+        # return final parameters on the same device
+        w_final     = torch.sigmoid(raw_w.detach())
+        sigma_final = torch.nn.functional.softplus(raw_sigma.detach())
+        return w_final.item(), sigma_final.item()
+
+    # ---------- perform vm+uniform fits & create overlay plot ----------
+    vm_fig_fit = plt.figure(figsize=(6, 5))
     x_dense = torch.linspace(-np.pi, np.pi, 512, device=device)
 
     for idx, err_np in enumerate(err_sets):
         errs = torch.from_numpy(err_np).to(device).float()
 
         w, kappa = fit_vm_uniform(errs)
-        summary[item_num[idx]].update({"w": w, "kappa": kappa})
+        summary[item_num[idx]].update({"vm_w": w, "vm_kappa": kappa})
 
         # empirical hist for overlay
         hist, bins = np.histogram(err_np, bins=x_vals, density=True)
@@ -543,10 +601,46 @@ def plot_error_dist(model):
     plt.title('Error Histograms with VM + Uniform Fits')
     plt.legend(ncol=2, fontsize=8)
     plt.ylim(bottom=0)
-    fig_fit.tight_layout()
-    fig_fit.savefig(fit_png, dpi=300)
-    plt.close(fig_fit)
-    print(f"Fit overlay figure saved to: {fit_png}")
+    vm_fig_fit.tight_layout()
+    vm_fig_fit.savefig(vm_fit_png, dpi=300)
+    plt.close(vm_fig_fit)
+
+    # ---------- perform gauss+uniform fits & create overlay plot ----------
+    gauss_fig_fit = plt.figure(figsize=(6, 5))
+    x_dense = torch.linspace(-np.pi, np.pi, 512, device=device)
+
+    for idx, err_np in enumerate(err_sets):
+        errs = torch.from_numpy(err_np).to(device).float()
+
+        w, sigma = fit_gauss_uniform(errs)
+        summary[item_num[idx]].update({"gauss_w": w, "gauss_sigma": sigma})
+
+        # empirical hist for overlay
+        hist, bins = np.histogram(err_np, bins=x_vals, density=True)
+        centers    = 0.5*(bins[:-1] + bins[1:])
+        plt.plot(centers, hist, label=f'{item_num[idx]} item(s)', color=colors[idx])
+
+        # fitted curve
+        gauss = torch.exp(-0.5 * (x_dense / sigma) ** 2) / ( sigma * math.sqrt(2 * math.pi) )
+        unif = 1/(2*np.pi)
+        pdf  = w*gauss + (1-w)*unif
+        plt.plot(x_dense.cpu().numpy(), pdf.cpu().numpy(),
+                 '--', color=colors[idx], alpha=0.8,
+                 label=f'{item_num[idx]} item(s) • fit')
+
+    plt.xlim(-np.pi, np.pi)
+    plt.xticks([-np.pi, -np.pi/2, 0, np.pi/2, np.pi],
+               [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
+    plt.xlabel('Angular Error (rad)')
+    plt.ylabel('Probability Density')
+    plt.title('Error Histograms with Gauss + Uniform Fits')
+    plt.legend(ncol=2, fontsize=8)
+    plt.ylim(bottom=0)
+    gauss_fig_fit.tight_layout()
+    gauss_fig_fit.savefig(gauss_fit_png, dpi=300)
+    plt.close(gauss_fig_fit)
+    print(f"Fit overlay figure saved to: {vm_fit_png} and {gauss_fit_png}")
+
 
     # ---------- save YAML summary ----------
     with open(yaml_path, 'w') as f:
@@ -569,11 +663,13 @@ def plot_error_dist(model):
     item_sizes = sorted(summary.keys())             # e.g. [1,2,4,8]
     raw_line_sds    = [summary[n]['raw_line_std'] for n in item_sizes]
     raw_circ_sds    = [summary[n]['raw_circ_std'] for n in item_sizes]
+    uni_w_vm    = [1-summary[n]['vm_w'] for n in item_sizes]
+    uni_w_gauss    = [1-summary[n]['gauss_w'] for n in item_sizes]
     mix_vm_sds    = []
 
     for n in item_sizes:
-        w      = summary[n]['w']
-        kappa  = summary[n]['kappa']
+        w      = summary[n]['vm_w']
+        kappa  = summary[n]['vm_kappa']
 
         # mean resultant length of the von-Mises part: R = I1/I0
         R      = (torch.special.i1(torch.tensor(kappa)) /
@@ -584,23 +680,51 @@ def plot_error_dist(model):
         summary[n]['mix_vm_circ_std'] = sd_cm
         mix_vm_sds.append(sd_cm)
 
-    # ----------  SD comparison figure  ----------
+    # ---------- VM SD comparison figure  ----------
     fig_sd = plt.figure(figsize=(5, 4))
-    plt.plot(item_sizes, raw_line_sds, 'o-',  label='Empirical linear SD')
-    plt.plot(item_sizes, raw_circ_sds, 'o-',  label='Empirical circular SD')
-    plt.plot(item_sizes, mix_vm_sds, 's--', label='Mixture SD')
+    plt.plot(item_sizes, raw_circ_sds, 'o-',  label='Empirical circ SD')
+    plt.plot(item_sizes, mix_vm_sds, 's--', label='VM circ SD')
     plt.xlabel('Number of items')
     plt.ylabel('Circular SD (rad)')
-    plt.title('Raw vs. Mixture Circular SD')
+    plt.title('Raw vs. VM SD')
     plt.legend()
     plt.tight_layout()
 
-    sd_png = f'{out_dir}/sd_compare.png'
-    fig_sd.savefig(sd_png, dpi=300)
+    vm_sd_png = f'{out_dir}/vm_sd_compare.png'
+    fig_sd.savefig(vm_sd_png, dpi=300)
     plt.close(fig_sd)
-    print(f"SD comparison figure saved to: {sd_png}")
+
+    # ---------- Gauss SD comparison figure  ----------
+    fig_sd = plt.figure(figsize=(5, 4))
+    plt.plot(item_sizes, raw_line_sds, 'o-',  label='Empirical SD')
+    plt.plot(item_sizes, mix_vm_sds, 's--', label='Gauss SD')
+    plt.xlabel('Number of items')
+    plt.ylabel('Linear SD (rad)')
+    plt.title('Raw vs. Gauss SD')
+    plt.legend()
+    plt.tight_layout()
+
+    gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
+    fig_sd.savefig(gauss_sd_png, dpi=300)
+    plt.close(fig_sd)
+    print(f"SD comparison figure saved to: {vm_sd_png} and {gauss_sd_png}")
+
+    # ---------- VM vs Gauss 1-w figure  ----------
+    fig_w = plt.figure(figsize=(5, 4))
+    plt.plot(item_sizes, uni_w_vm, 'o-',  label='uniform weight (vm)')
+    plt.plot(item_sizes, uni_w_gauss, 's--', label='uniform weight (gauss)')
+    plt.xlabel('Number of items')
+    plt.ylabel('weight')
+    plt.title('Uniform Weight')
+    plt.ylim([0,1])
+    plt.legend()
+    plt.tight_layout()
+
+    w_png = f'{out_dir}/uniform_w_compare.png'
+    fig_w.savefig(w_png, dpi=300)
+    plt.close(fig_w)
+    print(f"Uniform weight comparison figure saved to: {w_png}")
 
     # ----------  (re)write YAML including cm_std  ----------
     with open(yaml_path, 'w') as f:
         yaml.safe_dump(summary, f, sort_keys=False, default_flow_style=False)
-    print(f"Fit parameters (incl. cm_std) saved to: {yaml_path}")
