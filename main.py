@@ -7,7 +7,9 @@ from rnn import *
 from config import *
 from train import *
 from utils import *
-from fixedpoint import fixed_points_finder, SNR_analysis
+from Analysis.fixedpoint import fixed_points_finder
+from Analysis.snr_analysis import SNR_analysis
+from Analysis.error_dist_analysis import error_dist_analysis
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
@@ -32,7 +34,8 @@ if __name__ == "__main__":
 
     # Plot error distribution plots
     if error_dist_bool:
-        plot_error_dist(model)
+        print(f"Running Error Distribution Analysis...")
+        error_dist_analysis(model)
 
     with torch.no_grad():
         # Plot weights
@@ -43,6 +46,9 @@ if __name__ == "__main__":
         if history:
             plot_group_training_history(history["iterations"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
 
-        if SNR_analy_bool:
+        if snr_analy_bool:
             print(f"Running Signal to Noise Ratio Analysis...")
             SNR_analysis(model)
+
+        if mixed_selec_bool:
+            print(f"Running Mixed Selectivity Analysis (set size = 1)...")

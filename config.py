@@ -70,7 +70,7 @@ cuda_device = int(logging_params["cuda_device"])
 plot_weights_bool = logging_params["plot_weights_bool"]
 error_dist_bool = logging_params["error_dist_bool"]
 fit_mixture_bool = logging_params["fit_mixture_bool"]
-SNR_analy_bool = logging_params["SNR_analy_bool"]
+snr_analy_bool = logging_params["snr_analy_bool"]
 
 # Fixed Point Finder parameters
 fpf_bool = fpf_params["fpf_bool"]
