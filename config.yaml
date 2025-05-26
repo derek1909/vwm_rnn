@@ -38,6 +38,7 @@ model_and_logging_params:
   error_dist_bool: true
   fit_mixture_bool: true
   snr_analy_bool: true
+  mixed_selec_bool: true
 
 fpf_params:
   fpf_bool: false

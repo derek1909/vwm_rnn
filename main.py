@@ -10,6 +10,7 @@ from utils import *
 from Analysis.fixedpoint import fixed_points_finder
 from Analysis.snr_analysis import SNR_analysis
 from Analysis.error_dist_analysis import error_dist_analysis
+from Analysis.mixed_selectivity import mixed_selectivity_analysis
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
@@ -52,3 +53,4 @@ if __name__ == "__main__":
 
         if mixed_selec_bool:
             print(f"Running Mixed Selectivity Analysis (set size = 1)...")
+            mixed_selectivity_analysis(model)
