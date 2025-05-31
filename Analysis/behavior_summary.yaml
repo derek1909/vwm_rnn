@@ -1,0 +1,20 @@
+1:
+  circular_variance_mean: 0.11684887229260515
+  circular_variance_se: 0.018412631309438696
+  circular_kurtosis_mean: 4.391871034242305
+  circular_kurtosis_se: 1.2863825926005343
+2:
+  circular_variance_mean: 0.258213190385325
+  circular_variance_se: 0.05661383027619771
+  circular_kurtosis_mean: 3.9813077990078303
+  circular_kurtosis_se: 1.093645888521741
+4:
+  circular_variance_mean: 0.7283696706999416
+  circular_variance_se: 0.18736562272918922
+  circular_kurtosis_mean: 2.61275565236605
+  circular_kurtosis_se: 0.46839382827388093
+8:
+  circular_variance_mean: 1.7999040867101346
+  circular_variance_se: 0.4148971537107103
+  circular_kurtosis_mean: 1.0432492030921368
+  circular_kurtosis_se: 0.4490976572521871

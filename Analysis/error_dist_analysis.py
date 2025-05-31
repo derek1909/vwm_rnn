@@ -3,6 +3,7 @@ from rnn import *
 from config import *
 from train import *
 from utils import *
+import yaml
 
 
 # ---------- helper: VM + uniform negative-log-likelihood ----------
@@ -104,11 +105,13 @@ def error_dist_analysis(model):
     out_dir = f'{model_dir}/error_dist'
     os.makedirs(out_dir, exist_ok=True)
     hist_png  = f'{out_dir}/error_hist.png'
-    vm_fit_png   = f'{out_dir}/vm_error_fit.png'
-    gauss_fit_png   = f'{out_dir}/gauss_error_fit.png'
-    vm_sd_png = f'{out_dir}/vm_sd_compare.png'
-    gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
-    w_png = f'{out_dir}/uniform_w_compare.png'
+    var_png  = f'{out_dir}/error_var.png'
+    kurt_png  = f'{out_dir}/error_kurt.png'
+    # vm_fit_png   = f'{out_dir}/vm_error_fit.png'
+    # gauss_fit_png   = f'{out_dir}/gauss_error_fit.png'
+    # vm_sd_png = f'{out_dir}/vm_sd_compare.png'
+    # gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
+    # w_png = f'{out_dir}/uniform_w_compare.png'
     yaml_path = f'{out_dir}/fit_summary.yaml'
 
     # ------------------ generate test data ------------------
@@ -156,7 +159,7 @@ def error_dist_analysis(model):
 
     # ------------------ plot: raw histograms ------------------
     fig_raw = plt.figure(figsize=(6, 5))
-    x_vals  = np.linspace(-np.pi, np.pi, 100)
+    x_vals  = np.linspace(-np.pi, np.pi, 200)
     colors  = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
     err_sets, summary = [], {}   # keep per-condition errors for later fitting
@@ -170,18 +173,6 @@ def error_dist_analysis(model):
         hist, bins = np.histogram(err, bins=x_vals, density=True)
         centers    = 0.5*(bins[:-1] + bins[1:])
         plt.plot(centers, hist, label=f'{item_num[idx]} item(s)', color=colors[idx])
-
-        # err is your 1D numpy array of angles in [-π,π]
-        C = np.mean(np.cos(err))
-        S = np.mean(np.sin(err))
-        Rbar = np.hypot(C, S)
-        Rbar = np.clip(Rbar, 1e-12, 0.999999)                            # mean resultant length
-        raw_circ_sd = math.sqrt(-2.0 * math.log(Rbar))
-
-        summary[item_num[idx]] = {
-            "raw_line_std": float(err.std(ddof=1)),              # sample std (linear)
-            "raw_circ_std": raw_circ_sd                          # sample std (circular)
-        }
         start = end
 
     plt.xlim(-np.pi, np.pi)
@@ -197,6 +188,83 @@ def error_dist_analysis(model):
     plt.close(fig_raw)
     # print(f"Raw histograms saved to: {hist_png}")
 
+    def circular_variance(e):
+        m1 = np.mean(np.exp(1j * e))
+        return -2 * np.log(np.abs(m1))
+
+    def circular_kurtosis(e):
+        m1 = np.mean(np.exp(1j * e))
+        m2 = np.mean(np.exp(2j * e))
+        term1 = np.abs(m2) * np.cos(np.angle(m2) - 2 * np.angle(m1))
+        term2 = np.abs(m1)**4
+        denom = (1 - np.abs(m1))**2
+        return (term1 - term2) / denom
+
+    # Compute stats for each condition
+    for i, err in enumerate(err_sets):
+        n = item_num[i]
+        summary[n] = {
+            "circular_variance": float(circular_variance(err)),
+            "circular_kurtosis": float(circular_kurtosis(err))
+        }
+
+    # ----------------- Load human data from YAML -----------------
+    human_yaml_path = "/homes/jd976/working/vwm_rnn/Analysis/behavior_summary.yaml"
+    with open(human_yaml_path, "r") as f:
+        human_data = yaml.safe_load(f)
+
+    # Extract data
+    human_item_num = sorted(human_data.keys(), key=lambda x: int(x))
+    human_variances = [human_data[int(k)]["circular_variance_mean"] for k in human_item_num]
+    human_kurtoses = [human_data[int(k)]["circular_kurtosis_mean"] for k in human_item_num]
+    human_var_se = [human_data[int(k)]["circular_variance_se"] for k in human_item_num]
+    human_kurt_se = [human_data[int(k)]["circular_kurtosis_se"] for k in human_item_num]
+
+    # ----------------- Mock model output (replace with your model-derived stats) -----------------
+    model_variances = [summary[int(k)]["circular_variance"] for k in item_num]
+    model_kurtoses = [summary[int(k)]["circular_kurtosis"] for k in item_num]
+
+    # ----------------- Plot comparison -----------------
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(4, 6))
+
+    # ------------------ Plot 2: Circular Variance ------------------
+    fig1, ax1 = plt.subplots(figsize=(4, 3))
+    ax1.errorbar(human_item_num, human_variances, yerr=human_var_se, fmt='ko', capsize=3, label="Human")
+    ax1.plot(item_num, model_variances, 'r', label="Model")
+    ax1.set_xscale('log')
+    ax1.set_yscale('log')
+    ax1.set_xticks(item_num)
+    ax1.set_xticklabels([str(s) for s in item_num])
+    ax1.set_ylabel('circular variance ($\\sigma^2$)')
+    ax1.set_xlabel('items')
+    ax1.set_title('width, $\\omega$')
+    ax1.legend()
+    fig1.tight_layout()
+    fig1.savefig(var_png, dpi=300)
+
+    # ------------------ Plot 3: Circular Kurtosis ------------------
+    fig2, ax2 = plt.subplots(figsize=(4, 3))
+    ax2.errorbar(human_item_num, human_kurtoses, yerr=human_kurt_se, fmt='ko', capsize=3, label="Human")
+    ax2.plot(item_num, model_kurtoses, 'r', label="Model")
+    ax2.set_xscale('log')
+    ax2.set_yscale('log')
+    ax2.set_xticks(item_num)
+    ax2.set_xticklabels([str(s) for s in item_num])
+    ax2.set_ylabel('circular kurtosis')
+    ax2.set_xlabel('items')
+    ax2.set_title('kurtosis')
+    ax2.legend()
+    fig2.tight_layout()
+    fig2.savefig(kurt_png, dpi=300)
+
+    # ---------- save YAML summary ----------
+    with open(yaml_path, 'w') as f:
+        yaml.safe_dump(summary, f, sort_keys=False, default_flow_style=False)
+    # tidy GPU
+    del angular_diff, input_presence, input_thetas
+    torch.cuda.empty_cache(); gc.collect()
+
+"""
     # ==================================================================
     # =========================  mixture fitting  ======================
     # ==================================================================
@@ -340,10 +408,4 @@ def error_dist_analysis(model):
     fig_w.savefig(w_png, dpi=300)
     plt.close(fig_w)
     # print(f"Uniform weight comparison figure saved to: {w_png}")
-
-    # ---------- save YAML summary ----------
-    with open(yaml_path, 'w') as f:
-        yaml.safe_dump(summary, f, sort_keys=False, default_flow_style=False)
-    # tidy GPU
-    del angular_diff, input_presence, input_thetas
-    torch.cuda.empty_cache(); gc.collect()
+"""
