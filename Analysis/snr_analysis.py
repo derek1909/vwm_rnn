@@ -8,6 +8,8 @@ import yaml
 from scipy.stats import chi2
 import matplotlib.patches as patches
 from matplotlib import cm
+import seaborn as sns
+import pandas as pd
 
 from rnn import *
 from config import *
@@ -111,20 +113,44 @@ def plot_input_n_activity(
     mean_ext_stim  = R_ext[stim_start:stim_end].mean(axis=(0, 1))
     std_ext_stim   = R_ext[stim_start:stim_end].std(axis=(0, 1))
 
-    # Plot 2×3 histograms of mean and std values
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8), tight_layout=True)
-    axes[0, 0].hist(mean_r_delay);    axes[0, 0].set(title='Mean firing rate (delay)', xlabel='Rate', ylabel='# neurons')
-    axes[0, 1].hist(mean_rec_delay);  axes[0, 1].set(title='Mean recurrent input (delay)', xlabel='Input', ylabel='# neurons')
-    axes[0, 2].hist(mean_ext_stim);   axes[0, 2].set(title='Mean external input (stim)', xlabel='Input', ylabel='# neurons')
-    axes[1, 0].hist(std_r_delay);     axes[1, 0].set(title='Std firing rate (delay)', xlabel='Std(rate)', ylabel='# neurons')
-    axes[1, 1].hist(std_rec_delay);   axes[1, 1].set(title='Std recurrent input (delay)', xlabel='Std(input)', ylabel='# neurons')
-    axes[1, 2].hist(std_ext_stim);    axes[1, 2].set(title='Std external input (stim)', xlabel='Std(input)', ylabel='# neurons')
+    # Organize all stats into a dataframe for easier handling
+    data_dict = {
+        'Mean firing rate (delay)': mean_r_delay,
+        'Std firing rate (delay)': std_r_delay,
+        'Mean recurrent input (delay)': mean_rec_delay,
+        'Std recurrent input (delay)': std_rec_delay,
+        'Mean external input (stim)': mean_ext_stim,
+        'Std external input (stim)': std_ext_stim
+    }
 
+    # Convert to DataFrame
+    df = pd.DataFrame({
+        'firing_mean': data_dict['Mean firing rate (delay)'],
+        'firing_std': data_dict['Std firing rate (delay)'],
+        'recur_mean': data_dict['Mean recurrent input (delay)'],
+        'recur_std': data_dict['Std recurrent input (delay)'],
+        'ext_mean': data_dict['Mean external input (stim)'],
+        'ext_std': data_dict['Std external input (stim)'],
+    })
+
+    # Create and save each jointplot
     os.makedirs(result_dir, exist_ok=True)
-    hist_path = os.path.join(result_dir, 'activity_histograms.png')
-    fig.savefig(hist_path); plt.close(fig)
+    plot_specs = [
+        ('firing_mean', 'firing_std', 'Firing Rate (Delay)'),
+        ('recur_mean', 'recur_std', 'Recurrent Input (Delay)'),
+        ('ext_mean', 'ext_std', 'External Input (Stim)')
+    ]
 
-    # import ipdb; ipdb.set_trace()
+    for x_col, y_col, title in plot_specs:
+        g = sns.jointplot(
+            data=df, x=x_col, y=y_col,
+            kind='scatter', height=5, marginal_kws=dict(bins=30, fill=True)
+        )
+        g.figure.suptitle(title, fontsize=14)
+        g.figure.tight_layout()
+        g.figure.subplots_adjust(top=0.95)  # Ensure title isn't clipped
+        g.savefig(os.path.join(result_dir, f'{x_col}_vs_{y_col}_jointplot.png'))
+        plt.close(g.figure)
 
     # -------- Plot 2: Neuron Activity vs. Time (single trial) --------
     trial_idx = np.random.choice(trials)
