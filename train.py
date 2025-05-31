@@ -76,10 +76,32 @@ def _train_error_exp(u_hat, u_0, presence):
 
     # 4) Recover Δθ and similarity S(Δθ)
     delta = torch.acos(dot)                    # in radians. [0, pi]
-    similarity = 10*torch.exp(-5 * delta / torch.pi)  # (trials, items)
+    similarity = 10*torch.exp(-3 * delta / torch.pi)  # (trials, items)
 
     # 5) Final loss =  − S
     error_per_trial = (-similarity*presence).sum(dim=1) / presence.sum(dim=1)   # -> (trials,)
+
+    return error_per_trial.mean(), error_per_trial.var()
+
+def _train_error_rad(u_hat, u_0, presence):
+    steps, trials, _ = u_hat.shape
+    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
+    u_0_reshaped = u_0.reshape(trials, -1, 2) # (num_trials, max_items, 2)
+
+    # 1) Normalize both to unit length along the last dim
+    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)   # shape (steps, trials, items, 2)
+
+    # 2) Avg over time
+    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # (num_trials, max_items, 2)
+
+    # 3) Compute cosine of the angular error 
+    dot = torch.sum(u_0_reshaped * u_hat_reshaped_norm_mean, dim=-1)  # (trials, items)
+
+    # 4) Recover Δθ and similarity S(Δθ)
+    delta = torch.acos(dot)                    # in radians. [0, pi]
+
+    # 5) Final loss =  delta
+    error_per_trial = (delta*presence).sum(dim=1) / presence.sum(dim=1)   # -> (trials,)
 
     return error_per_trial.mean(), error_per_trial.var()
 
@@ -88,6 +110,7 @@ _ERROR_FN = {
     "sqrtl2":   _train_error_sqrtl2,
     "l2":       _train_error_l2,
     "exp":      _train_error_exp,
+    "rad":      _train_error_rad,
 }
 
 def error_calc(model, r_stack, target_thetas, presence, train_err=True):
