@@ -251,37 +251,43 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
-    ## Summary Plot ##
+    def plot_error_activ_vs_itemnum(errors, activs, plot_path):
+        fig, ax1 = plt.subplots(figsize=(8, 6))
+        # Plot error on the primary y-axis (ax1)
+        line1, = ax1.plot(item_num, errors, marker='o', color=err_color, label='Error (rad)')
+        ax1.set_xlabel('Item Number')
+        ax1.set_ylabel('Error (rad)', color=err_color)
+        ax1.tick_params(axis='y', labelcolor=err_color)
+        ax1.grid(True)
+        ax1.set_ylim(bottom=0)  # Set lower limit to zero for ax1
+
+        # Create a secondary y-axis for activation
+        ax2 = ax1.twinx()
+        line2, = ax2.plot(item_num, activs, marker='s', color=activ_color, label='Activation (Hz)')
+        ax2.set_ylabel('Activation (Hz)', color=activ_color)
+        ax2.tick_params(axis='y', labelcolor=activ_color)
+        ax2.set_ylim(bottom=0)  # Set lower limit to zero for ax2
+
+        # Combine the legends from both axes
+        lines = [line1, line2]
+        labels = [line.get_label() for line in lines]
+        fig.legend(lines, labels, loc='lower center', ncol=2)
+        
+        plt.title('Error and Activation vs. Item Number')
+        plt.savefig(plot_path, dpi=300)
+        plt.close()
+    
+
     final_errors = [errors[-1] for errors in group_errors]
     final_activations = [activ[-1] for activ in group_activ]
-
-    # Save the final plot with two different y-axes
-    final_plot_path = os.path.join(model_dir, 'error_activ_vs_itemnum.png')
-    fig, ax1 = plt.subplots(figsize=(8, 6))
+    final_plot_path = os.path.join(model_dir, 'Final_error_activ_vs_itemnum.png')
+    plot_error_activ_vs_itemnum(final_errors, final_activations, final_plot_path)
     
-    # Plot error on the primary y-axis (ax1)
-    line1, = ax1.plot(item_num, final_errors, marker='o', color=err_color, label='Last Error (rad)')
-    ax1.set_xlabel('Item Number')
-    ax1.set_ylabel('Last Error (rad)', color=err_color)
-    ax1.tick_params(axis='y', labelcolor=err_color)
-    ax1.grid(True)
-    ax1.set_ylim(bottom=0)  # Set lower limit to zero for ax1
-
-    # Create a secondary y-axis for activation
-    ax2 = ax1.twinx()
-    line2, = ax2.plot(item_num, final_activations, marker='s', color=activ_color, label='Activation (Hz)')
-    ax2.set_ylabel('Activation (Hz)', color=activ_color)
-    ax2.tick_params(axis='y', labelcolor=activ_color)
-    ax2.set_ylim(bottom=0)  # Set lower limit to zero for ax2
-
-    # Combine the legends from both axes
-    lines = [line1, line2]
-    labels = [line.get_label() for line in lines]
-    fig.legend(lines, labels, loc='lower center', ncol=2)
+    first_errors = [errors[0] for errors in group_errors]
+    first_activations = [activ[0] for activ in group_activ]
+    first_plot_path = os.path.join(model_dir, 'First_error_activ_vs_itemnum.png')
+    plot_error_activ_vs_itemnum(first_errors, first_activations, first_plot_path)
     
-    plt.title('Error and Activation vs. Item Number')
-    plt.savefig(final_plot_path, dpi=300)
-    plt.close()
 
 def save_model_and_history(model, history, model_dir, model_name="model", history_name="training_history.yaml"):
     """Saves the model state and training history to the specified directory."""
