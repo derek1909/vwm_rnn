@@ -26,12 +26,14 @@ class RNNMemoryModel(nn.Module):
         # ---- pick the noise function once, based on spike_noise_type ----
         if spike_noise_type.lower() == "gamma":
             self._noise_fn = self._gamma_noise
-        elif spike_noise_type.lower() == "gaussian":
+        elif spike_noise_type.lower() == "gauss":
             self._noise_fn = self._gaussian_noise
+        elif spike_noise_type.lower() == "puregauss":
+            self._noise_fn = self._pure_gaussian_noise
         else:
             raise ValueError(
                 f"Unsupported spike_noise_type '{self.spike_noise_type}'. "
-                "Expected 'gamma' or 'gaussian'."
+                "Expected 'gamma' 'gauss' or 'puregauss'."
             )
     
         # To make sure all models have same initialization.
@@ -99,6 +101,11 @@ class RNNMemoryModel(nn.Module):
         """
         return self.saturation_firing_rate/2 * (1 + torch.tanh(0.14 * x - 4.2))
 
+    def _pure_gaussian_noise(self, r: torch.Tensor) -> torch.Tensor:
+        # pure Gaussian noise   
+        gauss_noise = self.spike_noise_factor * 15 * torch.randn_like(r, device=self.device)        
+        return F.relu(r + gauss_noise)
+
     def _gaussian_noise(self, r: torch.Tensor) -> torch.Tensor:
         # poisson‐like (Gaussian approximation)    
         poisson_like_noise = self.spike_noise_factor * torch.sqrt(r * 1e3 / self.dt + 1e-10) * torch.randn_like(r, device=self.device)        
@@ -124,9 +131,10 @@ class RNNMemoryModel(nn.Module):
         Returns:
             Tensor with same shape as r, after adding noise and applying ReLU.
         """
-        corrupted_r = self._noise_fn(r)
-
-        return corrupted_r
+        if self.spike_noise_factor > 0.0:
+            return self._noise_fn(r)
+        else:
+            return r
     
     
     def forward(self, u: torch.Tensor, r0: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
