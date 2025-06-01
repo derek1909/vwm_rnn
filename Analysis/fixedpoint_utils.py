@@ -31,7 +31,8 @@ def plot_fps(fps,
     mode_scale=0.25,
     fig=None,
     save_path=None,
-    iteration=None):
+    iteration=None,
+    plot_fps=False):
 
     '''Plots a visualization and analysis of the unique fixed points.
 
@@ -111,34 +112,23 @@ def plot_fps(fps,
     n_inits = fps.n
     n_states = fps.n_states
 
-    if n_states >= 3:
-        pca = PCA(n_components=3)
+    pca = PCA(n_components=3)
 
-        if state_traj is not None:
-            state_traj_btxd = np.reshape(state_traj_bxtxd,
-                (n_batch*n_time, n_states))
-            pca.fit(state_traj_btxd)
-        else:
-            pca.fit(fps.xstar)
-
-        ax = fig.add_subplot(111, projection='3d')
-        ax.set_xlabel('PC 1', fontweight=FONT_WEIGHT)
-        ax.set_zlabel('PC 3', fontweight=FONT_WEIGHT)
-        ax.set_ylabel('PC 2', fontweight=FONT_WEIGHT)
-
+    if state_traj is not None:
+        state_traj_btxd = np.reshape(state_traj_bxtxd,
+            (n_batch*n_time, n_states))
+        pca.fit(state_traj_btxd)
     else:
-        # For 1D or 0D networks (i.e., never)
-        pca = None
-        ax = fig.add_subplot(111)
-        ax.xlabel('Hidden 1', fontweight=FONT_WEIGHT)
-        if n_states == 2:
-            ax.ylabel('Hidden 2', fontweight=FONT_WEIGHT)
+        pca.fit(fps.xstar)
+
+    ax = fig.add_subplot(111, projection='3d')
+    ax.set_xlabel('PC 1', fontweight=FONT_WEIGHT)
+    ax.set_zlabel('PC 3', fontweight=FONT_WEIGHT)
+    ax.set_ylabel('PC 2', fontweight=FONT_WEIGHT)
 
     # ax.text(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
-    if n_states >= 3:
+    if iteration is not None:
         ax.text2D(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
-    else:
-        ax.text(0.05, 0.95, f"iteration: {iteration}", transform=ax.transAxes, fontsize=12, fontweight='bold', color='darkred')
 
     ## Plot blue trajectory from state_traj and plot_batch_idx ##
     if state_traj is not None:
@@ -148,22 +138,21 @@ def plot_fps(fps,
         for batch_idx in plot_batch_idx:
             x_idx = state_traj_bxtxd[batch_idx]
 
-            if n_states >= 3:
-                z_idx = pca.transform(x_idx[plot_time_idx, :])
-            else:
-                z_idx = x_idx[plot_time_idx, :]
+            z_idx = pca.transform(x_idx[plot_time_idx, :])
+
             # plot_123d(ax, z_idx, color='b', linewidth=0.2)
             ax.plot(z_idx[:, 0], z_idx[:, 1], z_idx[:, 2], color='b', linewidth=0.2)
             ax.scatter(z_idx[0, 0], z_idx[0, 1], z_idx[0, 2], marker='x', s=9, color='b') # Start
             ax.scatter(z_idx[-1, 0], z_idx[-1, 1], z_idx[-1, 2], marker='^', s=9, color='b') # End
 
     ## Plot fixed points (red, black) ##
-    for init_idx in range(n_inits):
-        plot_fixed_point(
-            ax,
-            fps[init_idx],
-            pca,
-            scale=mode_scale)
+    if plot_fps:
+        for init_idx in range(n_inits):
+            plot_fixed_point(
+                ax,
+                fps[init_idx],
+                pca,
+                scale=mode_scale)
 
     ## Save the figure from multiple angles if save_base_path is provided ##
     if save_path is not None:
@@ -384,31 +373,37 @@ def plot_123d(ax, z, **kwargs):
         raise ValueError("z should have 1, 2, or 3 columns corresponding to 1D, 2D, or 3D data.")
     
 def prepare_state(model):
-    fpf_item_num = [2]
+    fpf_item_num = [1]
     # Generate presence for each group
+    # input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
+    # trials_per_group = fpf_trials // len(fpf_item_num)  
+    # remaining_trials = fpf_trials % len(fpf_item_num)  
+    # trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(fpf_item_num))]
+
+    # start_index = 0
+    # for i, count in enumerate(trial_counts):
+    #     end_index = start_index + count
+    #     # Ensuring the first item (index 0) is always included
+    #     random_indices = torch.stack([torch.randperm(max_item_num - 1, device=device)[:fpf_item_num[i] - 1] + 1 for _ in range(count)])
+    #     one_hot_indices = torch.cat([torch.zeros(count, 1, dtype=torch.long, device=device), random_indices], dim=1)
+    #     input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
+    #     start_index = end_index
+
+    # # Generate the orientation of first item independently for each trial
+    # first_item = torch.linspace(-torch.pi, torch.pi, fpf_trials, device=device).unsqueeze(1) # (trials,1)
+    # if max_item_num == 1:
+    #      input_thetas = first_item
+    # elif max_item_num > 1:
+    #     # Generate the remaining items, which are shared across all trials
+    #     shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
+    #     # Concatenate the first item (unique per trial) with the shared items (same for all trials)
+    #     input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
+
+
     input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
-    trials_per_group = fpf_trials // len(fpf_item_num)  
-    remaining_trials = fpf_trials % len(fpf_item_num)  
-    trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(fpf_item_num))]
+    input_presence[:,0] = 1
+    input_thetas = (torch.rand(fpf_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi
 
-    start_index = 0
-    for i, count in enumerate(trial_counts):
-        end_index = start_index + count
-        # Ensuring the first item (index 0) is always included
-        random_indices = torch.stack([torch.randperm(max_item_num - 1, device=device)[:fpf_item_num[i] - 1] + 1 for _ in range(count)])
-        one_hot_indices = torch.cat([torch.zeros(count, 1, dtype=torch.long, device=device), random_indices], dim=1)
-        input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
-        start_index = end_index
-
-    # Generate the orientation of first item independently for each trial
-    first_item = torch.linspace(-torch.pi, torch.pi, fpf_trials, device=device).unsqueeze(1) # (trials,1)
-    if max_item_num == 1:
-         input_thetas = first_item
-    elif max_item_num > 1:
-        # Generate the remaining items, which are shared across all trials
-        shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
-        # Concatenate the first item (unique per trial) with the shared items (same for all trials)
-        input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
 
     u_t = generate_input(
         presence=input_presence,

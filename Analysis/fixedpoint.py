@@ -25,18 +25,23 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration
     fpf = FixedPointFinder(model, **fpf_hps)
 
     # valid_bxt: [n_batch x n_time]
+    plot_Fps = True
     if fpf_name == 'fpf_decode':
         start_t_idx = -2
         end_t_idx = -1
-    # elif fpf_name == 'delay':
-    #     start_t_idx = int((T_init + T_stimi) / dt)
-    #     end_t_idx = int((T_init + T_stimi + T_delay) / dt)
+    elif fpf_name == 'fpf_delay':
+        start_t_idx = int((T_init + T_stimi) / dt)
+        end_t_idx = int((T_init + T_stimi + T_delay) / dt)
     elif fpf_name == 'fpf_stimuli':
         start_t_idx = int(T_init / dt)
         end_t_idx = int((T_init + T_stimi) / dt)
     elif fpf_name == 'fpf_init':
         start_t_idx = 0
         end_t_idx = int(T_init / dt)
+    elif fpf_name == 'fpf_NoFps':
+        start_t_idx = -2
+        end_t_idx = -1
+        plot_Fps = False
     else:
         start_t_idx = 0
         end_t_idx = -1
@@ -64,7 +69,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration
         plot_batch_idx=trials_to_plot,
         plot_start_time=T_init,
         save_path=f'{model_dir}/{fpf_name}',
-        iteration=iteration
+        plot_fps=plot_Fps
         )
 
     return unique_fps
