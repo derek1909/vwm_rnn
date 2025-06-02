@@ -5,7 +5,7 @@ import ipdb
 from Analysis.FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
 from Analysis.fixedpoint_utils import *
 
-def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration):
+def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration, thetas):
     """
     Analyze and visualize fixed points of the trained RNN.
 
@@ -67,9 +67,10 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration
         unique_fps,
         state_traj=hidden_states,
         plot_batch_idx=trials_to_plot,
-        plot_start_time=T_init,
+        plot_start_time=0,
         save_path=f'{model_dir}/{fpf_name}',
-        plot_fps=plot_Fps
+        plot_fps=plot_Fps,
+        thetas=thetas
         )
 
     return unique_fps
@@ -92,7 +93,7 @@ def fixed_points_finder(model, iteration=None):
 
     for fpf_name in fpf_names:
         # print(f"Running Fixed Point Analysis for {fpf_name}")
-        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_name, iteration=iteration)
+        unique_fps = analyze_fixed_points(model, u_t[:,int(T_init/dt+1),:], hidden_states, fpf_name, iteration=iteration, thetas=thetas[:,0])
         # print(f"Fixed points found: {len(unique_fps)}")
 
     if fpf_pca_bool:

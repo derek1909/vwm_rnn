@@ -158,7 +158,7 @@ def error_dist_analysis(model):
     del r_decode, u_hat; torch.cuda.empty_cache(); gc.collect()
 
     # ------------------ plot: raw histograms ------------------
-    fig_raw = plt.figure(figsize=(6, 5))
+    fig_raw = plt.figure(figsize=(5, 4))
     x_vals  = np.linspace(-np.pi, np.pi, 200)
     colors  = plt.rcParams['axes.prop_cycle'].by_key()['color']
 
@@ -180,7 +180,7 @@ def error_dist_analysis(model):
                [r'$-\pi$', r'$-\pi/2$', '0', r'$\pi/2$', r'$\pi$'])
     plt.xlabel('Angular Error (rad)')
     plt.ylabel('Probability Density')
-    plt.title('Distribution of Decoding Errors')
+    # plt.title('Distribution of Decoding Errors')
     plt.legend()
     plt.ylim(bottom=0)
     fig_raw.tight_layout()

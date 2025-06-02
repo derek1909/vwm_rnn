@@ -110,8 +110,11 @@ def plot_input_n_activity(
     std_r_delay    = r[delay_start:delay_end].std(axis=(0, 1))
     mean_rec_delay = R_rec[delay_start:delay_end].mean(axis=(0, 1))
     std_rec_delay  = R_rec[delay_start:delay_end].std(axis=(0, 1))
-    mean_ext_stim  = R_ext[stim_start:stim_end].mean(axis=(0, 1))
-    std_ext_stim   = R_ext[stim_start:stim_end].std(axis=(0, 1))
+    mean_ext_stim  = R_ext[stim_start+1].mean(axis=0)
+    std_ext_stim   = R_ext[stim_start+1].std(axis=0)
+
+    # print(f'mean input: {mean_ext_stim.mean()}')
+    # print(f'mean activity: {r.mean()}')
 
     # Organize all stats into a dataframe for easier handling
     data_dict = {
@@ -144,9 +147,11 @@ def plot_input_n_activity(
     for x_col, y_col, title in plot_specs:
         g = sns.jointplot(
             data=df, x=x_col, y=y_col,
-            kind='scatter', height=5, marginal_kws=dict(bins=30, fill=True)
+            kind='scatter', height=4, marginal_kws=dict(bins=30, fill=True)
         )
-        g.figure.suptitle(title, fontsize=14)
+        g.ax_joint.set_xlabel("mean (Hz)")
+        g.ax_joint.set_ylabel("std (Hz)")
+        # g.figure.suptitle(title, fontsize=14)
         g.figure.tight_layout()
         g.figure.subplots_adjust(top=0.95)  # Ensure title isn't clipped
         g.savefig(os.path.join(result_dir, f'{x_col}_vs_{y_col}_jointplot.png'))
@@ -159,7 +164,7 @@ def plot_input_n_activity(
 
     selected_neurons = np.random.choice(activity.shape[1], size=5, replace=False)
 
-    fig2, ax2 = plt.subplots(figsize=(10, 6))
+    fig2, ax2 = plt.subplots(figsize=(5, 4))
 
     # Shade the four phases
     t0 = 0
@@ -174,11 +179,12 @@ def plot_input_n_activity(
 
     # Plot selected neurons
     for n in selected_neurons:
-        ax2.plot(time, activity[:, n], linewidth=1.5, label=f'Neuron {n}')
+        ax2.plot(time, activity[:, n], linewidth=1.5)
+        # ax2.plot(time, activity[:, n], linewidth=1.5, label=f'Neuron {n}')
     ax2.set(
         xlabel='Time (s)',
         ylabel='Firing Rate (Hz)',
-        title=f'Neuron Activity vs. Time (Trial {trial_idx})'
+        # title=f'Neuron Activity vs. Time (Trial {trial_idx})'
     )
     ax2.legend()
     ax2.grid(True)
@@ -217,7 +223,7 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
     # Randomly select trial indices for trajectory plotting
     selected_indices = np.random.choice(total_trials, size=num_trials, replace=False)
     
-    plt.figure(figsize=(10, 8))
+    fig, ax = plt.subplots(figsize=(6, 5))
     first_trial = True  # flag to add legend labels only once
     
     for trial_idx in selected_indices:
@@ -226,9 +232,9 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
         time_array = np.arange(steps) * dt  # Corresponding time array
         
         # Plot trajectory with scatter; color indicates time progression
-        sc = plt.scatter(traj[:, 0], traj[:, 1],
+        sc = ax.scatter(traj[:, 0], traj[:, 1],
                          c=time_array, cmap='viridis', s=10 if first_trial else None)
-        plt.plot(traj[:, 0], traj[:, 1], alpha=0.5)
+        ax.plot(traj[:, 0], traj[:, 1], alpha=0.5)
         
         # Calculate indices for phase boundaries (ensuring indices do not exceed steps)
         phase0_idx = 0
@@ -238,34 +244,34 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
         phase4_idx = int((T_init + T_stimi + T_delay + T_decode) / dt) - 1
 
         # Mark the initial location (start of trial)
-        if phase0_idx < steps:
-            plt.scatter(traj[phase0_idx, 0], traj[phase0_idx, 1],
-                        marker='s', color='magenta', s=50,
-                        label=f'Initial Location (t = {0:.2f} ms)' if first_trial else "")
+        # if phase0_idx < steps:
+        #     plt.scatter(traj[phase0_idx, 0], traj[phase0_idx, 1],
+        #                 marker='s', color='magenta', s=50,
+        #                 label=f'Initial Location (t = {0:.2f} ms)' if first_trial else "")
         # Mark the end of the initial phase
         if phase1_idx < steps:
             t_phase1 = phase1_idx * dt
-            plt.scatter(traj[phase1_idx, 0], traj[phase1_idx, 1],
+            ax.scatter(traj[phase1_idx, 0], traj[phase1_idx, 1],
                         marker='s', color='orange', s=50,
-                        label=f'End of Init (t = {t_phase1:.2f} ms)' if first_trial else "")
+                        label=f'End of Init' if first_trial else "")
         # Mark the end of the stimuli phase
         if phase2_idx < steps:
             t_phase2 = phase2_idx * dt
-            plt.scatter(traj[phase2_idx, 0], traj[phase2_idx, 1],
+            ax.scatter(traj[phase2_idx, 0], traj[phase2_idx, 1],
                         marker='s', color='cyan', s=50,
-                        label=f'End of Stimuli (t = {t_phase2:.2f} ms)' if first_trial else "")
+                        label=f'End of Stimuli' if first_trial else "")
         # Mark the end of the delay phase
         if phase3_idx < steps:
             t_phase3 = phase3_idx * dt
-            plt.scatter(traj[phase3_idx, 0], traj[phase3_idx, 1],
+            ax.scatter(traj[phase3_idx, 0], traj[phase3_idx, 1],
                         marker='s', color='lime', s=50,
-                        label=f'End of Delay (t = {t_phase3:.2f} ms)' if first_trial else "")
+                        label=f'End of Delay' if first_trial else "")
         # Mark the end of the decode phase
         if phase4_idx < steps:
             t_phase4 = phase4_idx * dt
-            plt.scatter(traj[phase4_idx, 0], traj[phase4_idx, 1],
+            ax.scatter(traj[phase4_idx, 0], traj[phase4_idx, 1],
                         marker='D', color='blue', s=50,
-                        label=f'End of Decode (t = {t_phase4:.2f} ms)' if first_trial else "")
+                        label=f'End of Decode' if first_trial else "")
         first_trial = False  # only add labels once
 
     if true_orientation is not None:
@@ -273,28 +279,29 @@ def plot_decode_trajectories(r_output, F, T_init, T_stimi, T_delay, T_decode, dt
         true_orientation_length = max(np.max(np.linalg.norm(decode_points[i], axis=1)) for i in selected_indices) * 0.5
         true_line_end = [math.cos(true_orientation) * true_orientation_length,
                          math.sin(true_orientation) * true_orientation_length]
-        plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
+        ax.plot([0, true_line_end[0]], [0, true_line_end[1]],
                  color='red', label='True Orientation', linestyle='-', linewidth=1.5)
-        plt.scatter(true_line_end[0], true_line_end[1],
+        ax.scatter(true_line_end[0], true_line_end[1],
                     marker='*', color='red', s=100)
     
-    plt.axhline(0, color='black', linewidth=1, linestyle='-')
-    plt.axvline(0, color='black', linewidth=1, linestyle='-')
-    cbar = plt.colorbar(sc)
+    ax.axhline(0, color='black', linewidth=1, linestyle='-')
+    ax.axvline(0, color='black', linewidth=1, linestyle='-')
+    cbar = fig.colorbar(sc)
     cbar.set_label('Time (s)')
     
-    plt.xlabel('Component 1')
-    plt.ylabel('Component 2')
-    plt.title('Sampled Trajectories in the Decoding Plane')
-    plt.legend()
-    plt.grid(True)
-    plt.axis('equal')
+    ax.set_xlabel('Component 1')
+    ax.set_ylabel('Component 2')
+    # plt.title('Sampled Trajectories in the Decoding Plane')
+    # ax.legend(loc='center left', bbox_to_anchor=(1.5, 0.5), borderaxespad=0.)
+    fig.tight_layout(rect=[0, 0, 0.85, 1])
+    ax.grid(True)
+    ax.axis('equal')
     
     # Save the trajectory plot
     if not os.path.exists(result_dir):
         os.makedirs(result_dir)
     traj_image_path = os.path.join(result_dir, 'sample_trajectories.png')
-    plt.savefig(traj_image_path, dpi=300)
+    plt.savefig(traj_image_path, dpi=300, bbox_inches='tight')
     plt.close()
 
 def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt, model_dir):
@@ -364,7 +371,7 @@ def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt
     plot_input_n_activity(observed_r_output, u_t, W, B, T_init, T_stimi, T_delay, T_decode, snr_dir, dt)
     
     # -------- Plot 1: Non Time Averaged --------
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(5, 4))
     plt.scatter(decode_points[..., 0].flatten(), decode_points[..., 1].flatten(),
                 label='Decoded Points', marker=',', s=3, alpha=0.3)
     
@@ -413,7 +420,7 @@ def process_snr_item(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt
     # Average decoded points over time steps for each trial
     decode_points_time = decode_points.mean(axis=1)  # (trials, 2)
     
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(5, 4))
     plt.scatter(decode_points_time[:, 0], decode_points_time[:, 1],
                 label='Time Averaged Decoded Points', marker='o', s=10, alpha=0.3)
     plt.plot([0, true_line_end[0]], [0, true_line_end[1]],
@@ -498,7 +505,7 @@ def SNR_analysis(model):
         SNR2_dB_list.append(SNR2_dB)
     
     # Plot SNR vs. item number for both metrics
-    plt.figure(figsize=(8, 6))
+    plt.figure(figsize=(5, 4))
     plt.plot(item_numbers, SNR1_dB_list, marker='o', label='SNR1 - Not Time Averaged')
     plt.plot(item_numbers, SNR2_dB_list, marker='s', label='SNR2 - Time Averaged')
     plt.xlabel('Item Number', fontsize=12)

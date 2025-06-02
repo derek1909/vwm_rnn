@@ -1,0 +1,64 @@
+fpf_params:
+  fpf_N_init: 1024
+  fpf_bool: false
+  fpf_hps:
+    lr_init: 1.0
+    max_iters: 500
+    outlier_distance_scale: 10.0
+    super_verbose: false
+    verbose: false
+  fpf_names: ['fpf_NoFps', 'fpf_decode']
+  fpf_noise_scale: 0.0
+  fpf_pca_bool: false
+  fpf_trials: 32
+
+model_and_logging_params:
+  rnn_name: exp_Neuron256Input120RadLoss/spike_noise_factor-0.30000000
+  cuda_device: 0
+  plot_weights_bool: false
+  error_dist_bool: false
+  fit_mixture_bool: false
+  snr_analy_bool: false
+  mixed_selec_bool: false
+
+model_params:
+  ILC_noise: 0.0
+  T_decode: 500
+  T_delay: 1000
+  T_init: 20
+  T_stimi: 500
+  dales_law: true
+  dt: 10
+  input_strength: 120
+  item_num:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  max_item_num: 10
+  num_neurons: 256
+  positive_input: true
+  saturation_firing_rate: 60
+  spike_noise_factor: 0.3
+  spike_noise_type: gamma
+  tau_max: 300
+  tau_min: 50
+training_params:
+  adaptive_lr_patience: 400
+  early_stop_patience: 600
+  error_def: rad
+  eta: 0.0001
+  lambda_err: 1.0
+  lambda_reg: 1.0e-05
+  load_history: true
+  logging_period: 50
+  num_iterations: 50000
+  num_trials: 512
+  train_rnn: false
+  use_scripted_model: false

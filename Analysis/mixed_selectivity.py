@@ -3,7 +3,7 @@ from config import *
 from train import *
 from utils import *
 
-# --------------- Helper Functions (from previous response, ensure these are defined) ---------------
+# --------------- Helper Functions ---------------
 def _calculate_vector_strength(r_decode: torch.Tensor,
                                         input_thetas: torch.Tensor,
                                         input_presence: torch.Tensor):
@@ -96,7 +96,7 @@ def _visualize_R_matrix(R_matrix, title="Vector Strength (R_matrix) Heatmap", xl
 
     R_matrix_np = R_matrix.detach().cpu().numpy()
 
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(5, 4))
     plt.imshow(R_matrix_np, aspect='auto', cmap=cmap, interpolation='nearest')
     plt.colorbar(label='Vector Strength')
     plt.title(title)
@@ -136,11 +136,11 @@ def _visualize_R_matrix_and_ipr(R_matrix, ipr_values,
 
     # Create figure with two subplots: IPR curve on top, R_matrix.T heatmap below
     # sharex=True links the x-axis (neuron index) of both subplots
-    fig, axs = plt.subplots(2, 1, figsize=(8, 6), sharex=True, gridspec_kw={'height_ratios': [1, 2]}, constrained_layout=True)
+    fig, axs = plt.subplots(2, 1, figsize=(5, 4), sharex=True, gridspec_kw={'height_ratios': [1, 2]}, constrained_layout=True)
 
     # Top subplot: IPR curve
     axs[0].plot(neuron_indices, ipr_values_np, color='dodgerblue')
-    axs[0].set_title('IPR per Neuron')
+    # axs[0].set_title('IPR per Neuron')
     axs[0].set_ylabel('IPR Value')
     axs[0].grid(axis='y', linestyle='--', alpha=0.7)
     if num_neurons > 1 : # Avoid issues with xlim for single neuron
@@ -150,7 +150,7 @@ def _visualize_R_matrix_and_ipr(R_matrix, ipr_values,
     # Bottom subplot: R_matrix.T heatmap
     # R_matrix_T_np has shape (max_item_num, num_neurons)
     im = axs[1].imshow(R_matrix_T_np, aspect='auto', cmap=cmap, interpolation='nearest')
-    axs[1].set_title(title_heatmap)
+    # axs[1].set_title(title_heatmap)
     axs[1].set_xlabel(xlabel_heatmap) # "Neuron Index"
     axs[1].set_ylabel(ylabel_heatmap) # "Item Index"
     
@@ -181,9 +181,9 @@ def _visualize_ipr_histogram(ipr_values, title="Histogram of IPR Values", xlabel
     ipr_values_np = ipr_values.detach().cpu().numpy()
 
     # Create a new figure
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(5, 4))
     plt.hist(ipr_values_np, bins=bins, color='skyblue', edgecolor='black')
-    plt.title(title)
+    # plt.title(title)
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.grid(axis='y', alpha=0.75) # Add a light grid on y-axis
