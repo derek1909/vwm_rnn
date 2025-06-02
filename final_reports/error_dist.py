@@ -60,7 +60,7 @@ fig1.tight_layout()
 fig1.savefig(var_png, dpi=300)
 
 # Plot: Circular Kurtosis
-fig2, ax2 = plt.subplots(figsize=(5, 4))
+fig2, ax2 = plt.subplots(figsize=(4, 3))
 ax2.errorbar(item_num, human_kurtoses, yerr=human_kurt_se, fmt='ko', capsize=3, label="Human")
 for kurtoses, label, color in zip(model_kurtoses_list, model_labels, model_colors):
     ax2.plot(item_num, kurtoses, color=color, label=label)
