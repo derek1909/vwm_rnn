@@ -1,2 +1,4 @@
 # vwm_rnn
-Biologically plausible rnn for visual working memory tasks. This is my master project.
+
+A biologically plausible recurrent neural network (RNN) for simulating human visual working memory (VWM).  
+This project was developed as part of my MEng dissertation at the University of Cambridge (2024–2025).
