@@ -86,6 +86,12 @@ def fixed_points_finder(model, iteration=None):
     ## Simulate to collect hidden states ##
     # u_t: (trials, steps, neurons)
     # hidden_states: (trials, steps, neuron)
+    seed=42
+    np.random.seed(seed)            # NumPy
+    torch.manual_seed(seed)         # PyTorch CPU
+    torch.cuda.manual_seed(seed)    # PyTorch GPU
+    torch.cuda.manual_seed_all(seed)  # All GPUs
+    torch.backends.cudnn.deterministic = True
     u_t, hidden_states, thetas = prepare_state(model)
 
     if iteration is None:

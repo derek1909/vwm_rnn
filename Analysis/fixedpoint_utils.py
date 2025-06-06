@@ -141,6 +141,9 @@ def plot_fps(fps,
 		start_points = []
 		end_points = []
 		for batch_idx in plot_batch_idx:
+			alpha = 1
+			# if not (batch_idx == 0 or batch_idx==13):
+			# 	alpha=0
 			x_idx = state_traj_bxtxd[batch_idx]
 			z_idx = pca.transform(x_idx[plot_time_idx, :])
 			start_points.append(z_idx[int((T_init) / dt)]) 
@@ -156,29 +159,28 @@ def plot_fps(fps,
 			ax.plot(z_idx[stim_start_idx:stim_end_idx, 0],
 					z_idx[stim_start_idx:stim_end_idx, 1],
 					z_idx[stim_start_idx:stim_end_idx, 2],
-					color='gold', linewidth=0.6, label='Stimuli Phase' if (batch_idx == 0) and (not plot_fps) else None)
+					color='gold', linewidth=0.6, label='Stimuli Phase' if (batch_idx == 0) and (not plot_fps) else None, alpha=alpha)
 
 			# Delay phase: green
 			ax.plot(z_idx[stim_end_idx:delay_end_idx, 0],
 					z_idx[stim_end_idx:delay_end_idx, 1],
 					z_idx[stim_end_idx:delay_end_idx, 2],
-					color='green', linewidth=0.6, label='Delay Phase' if (batch_idx == 0) and (not plot_fps) else None)
+					color='green', linewidth=0.6, label='Delay Phase' if (batch_idx == 0) and (not plot_fps) else None, alpha=alpha)
 
 			# Decode phase: blue
 			ax.plot(z_idx[delay_end_idx:decode_end_idx, 0],
 					z_idx[delay_end_idx:decode_end_idx, 1],
 					z_idx[delay_end_idx:decode_end_idx, 2],
-					color='blue', linewidth=0.6, label='Decode Phase' if (batch_idx == 0) and (not plot_fps) else None)
-
+					color='blue', linewidth=0.6, label='Decode Phase' if (batch_idx == 0) and (not plot_fps) else None, alpha=alpha)
 
 		if not plot_fps:
 			start_points = np.array(start_points) 
 			end_points = np.array(end_points) 
 			sc1 = ax.scatter(start_points[:, 0], start_points[:, 1], start_points[:, 2],
-							c=thetas, cmap='hsv', s=30, marker='x', label='Start of Stimuli Phase' if (not plot_fps) else None)
+							c=thetas, cmap='hsv', s=30, marker='x', label='Start of Stimuli Phase' if (not plot_fps) else None, alpha=alpha)
 			sc2 = ax.scatter(end_points[:, 0], end_points[:, 1], end_points[:, 2],
-							c=thetas, cmap='hsv', s=30, marker='^', label='End of Decoding Phase' if (not plot_fps) else None)
-			cbar = plt.colorbar(sc1, ax=ax, shrink=0.5, aspect=15)
+							c=thetas, cmap='hsv', s=30, marker='^', label='End of Decoding Phase' if (not plot_fps) else None, alpha=alpha)
+			cbar = plt.colorbar(sc2, ax=ax, shrink=0.5, aspect=15)
 			cbar.set_label('Target Theta')
 
 	## Plot fixed points (red, black) ##
