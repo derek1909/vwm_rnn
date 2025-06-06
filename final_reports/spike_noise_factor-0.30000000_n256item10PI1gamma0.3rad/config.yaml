@@ -1,13 +1,13 @@
 fpf_params:
-  fpf_N_init: 1024
-  fpf_bool: false
+  fpf_N_init: 2
+  fpf_bool: true
   fpf_hps:
     lr_init: 1.0
-    max_iters: 500
+    max_iters: 2
     outlier_distance_scale: 10.0
     super_verbose: false
     verbose: false
-  fpf_names: ['fpf_NoFps', 'fpf_decode']
+  fpf_names: ['fpf_NoFps']
   fpf_noise_scale: 0.0
   fpf_pca_bool: false
   fpf_trials: 32

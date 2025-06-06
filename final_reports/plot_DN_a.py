@@ -18,14 +18,14 @@ model_data = {
         "inputs": angular_inputs,
         "activs": angular_activs
     },
-    "Euclidean Error": {
-        "inputs": euclidean_inputs,
-        "activs": euclidean_activs
-    }
+    # "Euclidean Error": {
+    #     "inputs": euclidean_inputs,
+    #     "activs": euclidean_activs
+    # }
 }
 
 # Plotting
-fig, axes = plt.subplots(1, 2, figsize=(7, 4), sharex=True)
+fig, axes = plt.subplots(1, 2, figsize=(5, 2.6), sharex=True)
 
 lines = []
 
@@ -34,7 +34,7 @@ for label, values in model_data.items():
     line, = axes[0].plot(set_sizes, values["inputs"], label=label, linewidth=2)
     lines.append(line)
 # axes[0].set_title("Mean Input vs Set Size")
-axes[0].set_xlabel("Set Size")
+axes[0].set_xlabel("Item number")
 axes[0].set_ylabel("Mean Input (Hz)")
 axes[0].set_ylim([0,32])
 axes[0].grid(True)
@@ -43,19 +43,21 @@ axes[0].grid(True)
 for _, values in model_data.items():
     axes[1].plot(set_sizes, values["activs"], linewidth=2)
 # axes[1].set_title("Mean Activity vs Set Size")
-axes[1].set_xlabel("Set Size")
+axes[1].set_xlabel("Item number")
 axes[1].set_ylabel("Mean Activation (Hz)")
 axes[1].set_ylim([0,32])
 axes[1].grid(True)
 
 # Shared legend outside
-fig.legend(lines, [line.get_label() for line in lines], loc='lower center', ncol=2, frameon=False)
-plt.tight_layout(rect=[0, 0.1, 1, 1])
+# fig.legend(lines, [line.get_label() for line in lines], loc='lower center', ncol=2, frameon=False)
+# plt.tight_layout(rect=[0, 0.1, 1, 1])
 
 # Save figure
 output_folder = "./final_reports/"
 os.makedirs(output_folder, exist_ok=True)
-output_path = os.path.join(output_folder, "input_activation_vs_setsize.png")
+output_path = os.path.join(output_folder, "input_activation_vs_setsize_angularonly.png")
+# plt.tight_layout(rect=[0, 0.1, 1, 1])
+plt.tight_layout()
 plt.savefig(output_path, dpi=200)
 plt.close()
 

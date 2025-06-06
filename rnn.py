@@ -30,6 +30,8 @@ class RNNMemoryModel(nn.Module):
             self._noise_fn = self._gaussian_noise
         elif spike_noise_type.lower() == "puregauss":
             self._noise_fn = self._pure_gaussian_noise
+        elif spike_noise_type.lower() == "csnr":
+            self._noise_fn = self._const_snr_noise
         else:
             raise ValueError(
                 f"Unsupported spike_noise_type '{self.spike_noise_type}'. "
@@ -37,7 +39,7 @@ class RNNMemoryModel(nn.Module):
             )
     
         # To make sure all models have same initialization.
-        # torch.manual_seed(39)
+        # torch.manual_seed(40)
 
         # ---- Dale's law assignment ----
         if self.dales_law:
@@ -99,7 +101,10 @@ class RNNMemoryModel(nn.Module):
         Returns:
             Tensor with same shape as x.
         """
-        return self.saturation_firing_rate/2 * (1 + torch.tanh(0.14 * x - 4.2))
+        if  self.saturation_firing_rate > 0:
+            return self.saturation_firing_rate/2 * (1 + torch.tanh(0.14 * x - 4.2))
+        else:
+            return 0.18 * torch.clamp(x - 10, min=1e-10) ** 1.7
 
     def _pure_gaussian_noise(self, r: torch.Tensor) -> torch.Tensor:
         # pure Gaussian noise   
@@ -119,6 +124,20 @@ class RNNMemoryModel(nn.Module):
         rate = torch.full_like(shape, lam)              #  -> (batch_size, num_neurons)
         gamma = torch.distributions.Gamma(shape, rate)     
         corrupted_r = gamma.rsample()                      #  -> (batch_size, num_neurons)
+        return corrupted_r
+
+    def _const_snr_noise(self, r: torch.Tensor) -> torch.Tensor:
+        # Constant-SNR noise using Gamma distribution
+        # r: (batch_size, num_neurons)
+
+        # Set reference firing rate r0 = 15 Hz for calibration
+        r0 = 5.0
+        kappa = (r0 * self.dt / 1e3) / (self.spike_noise_factor ** 2)
+
+        shape = torch.full_like(r, kappa)
+        rate = kappa / torch.clamp(r, min=1e-10)
+        gamma = torch.distributions.Gamma(shape, rate)
+        corrupted_r = gamma.rsample()                # differentiable sample
         return corrupted_r
 
     def observed_r(self, r: torch.Tensor) -> torch.Tensor:
