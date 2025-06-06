@@ -1,12 +1,4 @@
 # vwm_rnn
-Biologically plausible rnn for visual working memory tasks
 
-## Dependency Hierarchy
-All files depend on config.py
-
-```mermaid
-graph TD
-    config[config.py] --> rnn
-    rnn[rnn.py] --> utils[utils.py]
-    utils --> train[train.py]
-    train --> main[main.py]
+A biologically plausible recurrent neural network (RNN) for simulating human visual working memory (VWM).  
+This project was developed as part of my MEng dissertation at the University of Cambridge (2024–2025).
