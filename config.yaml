@@ -1,12 +1,12 @@
 model_params:
   max_item_num: 10
   item_num: [1,2,3,4,5,6,7,8,9,10]
-  num_neurons: 64
+  num_neurons: 256
   dt: 10
   tau_max: 300
   tau_min: 50
-  ILC_noise: 0.0
-  spike_noise_factor: 0.2
+  ILC_noise: 0.01
+  spike_noise_factor: 0.05
   spike_noise_type: 'gamma'
   positive_input: true
   input_strength: 120
@@ -22,7 +22,7 @@ training_params:
   load_history: false
   use_scripted_model: false
   num_iterations: 50000
-  error_def: 'l2'
+  error_def: 'rad'
   eta: 0.0001
   lambda_reg: 0.00001
   lambda_err: 1.0
@@ -32,24 +32,24 @@ training_params:
   adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: ""
-  cuda_device: 1
-  plot_weights_bool: true
-  error_dist_bool: true
+  rnn_name: "EasyTask1"
+  cuda_device: 0
+  plot_weights_bool: false
+  error_dist_bool: false
   fit_mixture_bool: false
-  snr_analy_bool: true
-  mixed_selec_bool: true
+  snr_analy_bool: false
+  mixed_selec_bool: false
 
-fpf_params:
-  fpf_bool: false
+fpf_params: 
+  fpf_bool: true
   fpf_pca_bool: true
-  fpf_names: ['fpf_decode', 'fpf_delay', 'fpf_stimuli']
-  fpf_trials: 50
-  fpf_N_init: 1024
+  fpf_names: ['fpf_NoFps', 'fpf_decode']
+  fpf_trials: 20
+  fpf_N_init: 20
   fpf_noise_scale: 0.0
   fpf_hps:
-    max_iters: 500
-    lr_init: 1.0
+    max_iters: 50
+    lr_init: 0.01
     outlier_distance_scale: 10.0
     verbose: false
     super_verbose: false

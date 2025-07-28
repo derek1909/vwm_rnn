@@ -32,8 +32,8 @@ base_folder = os.path.dirname(config_path)
 model_folder = os.path.join(base_folder, "models")
 
 # ===== Option Settings =====
-plot_first_n = 250    # Only select first N models; 0 means no filtering.
-plot_step = 4       # Select every X-th model; 0 means no filtering.
+plot_first_n = 0    # Only select first N models; 0 means no filtering.
+plot_step = 0       # Select every X-th model; 0 means no filtering.
 max_workers = 1
 # ===========================
 
@@ -107,6 +107,8 @@ def analyze_weights(model, iteration_num, save_folder):
     B_np = model.B.detach().cpu().numpy()
     W_np = model.W.detach().cpu().numpy()
     F_np = model.F.detach().cpu().numpy()
+    effective_W = model.W * model.dales_sign.view(1, -1)
+    effective_W_np = effective_W.detach().cpu().numpy()
 
     with plot_lock:
         # Create a subplot with 1 row and 3 columns.
@@ -123,7 +125,7 @@ def analyze_weights(model, iteration_num, save_folder):
         axes[0].set_ylabel(f"Neurons ({B_np.shape[0]})", fontsize=12)
 
         # Plot W (Recurrent Weights)
-        im1 = axes[1].imshow(W_np, cmap="seismic", vmin=-np.max(np.abs(W_np)), vmax=np.max(np.abs(W_np)))
+        im1 = axes[1].imshow(effective_W_np, cmap="seismic", vmin=-np.max(np.abs(W_np)), vmax=np.max(np.abs(W_np)))
         fig.colorbar(im1, ax=axes[1], fraction=0.023, pad=0.04)
         axes[1].set_title("Recurrent Weights (W)", fontsize=14)
         axes[1].set_xlabel(f"Neurons ({W_np.shape[1]})", fontsize=12)
@@ -264,7 +266,7 @@ ANALYSES = {
     "error_dist": {
         "enabled": True,
         "function": analyze_error_dist,
-        "save_folder": os.path.join(base_folder, "error_dist/ErrorDistEvolution"),
+        "save_folder": os.path.join(model_folder, "ErrorDistEvolution"),
         "gif_name": "ErrorDistEvolution.gif",
         "requires_input": False,
     },

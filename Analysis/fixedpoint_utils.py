@@ -431,8 +431,8 @@ def plot_F_vs_PCA(F, hidden_state_end, thetas, pca_dir, iteration):
 
 
 def prepare_state(model):
-	fpf_item_num = [1]
 	# Generate presence for each group
+	# fpf_item_num = [2]
 	# input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
 	# trials_per_group = fpf_trials // len(fpf_item_num)  
 	# remaining_trials = fpf_trials % len(fpf_item_num)  
@@ -442,7 +442,7 @@ def prepare_state(model):
 	# for i, count in enumerate(trial_counts):
 	#     end_index = start_index + count
 	#     # Ensuring the first item (index 0) is always included
-	#     random_indices = torch.stack([torch.randperm(max_item_num - 1, device=device)[:fpf_item_num[i] - 1] + 1 for _ in range(count)])
+	# 	random_indices = torch.stack([torch.randperm(max_item_num - 1, device=device)[:fpf_item_num[i] - 1] + 1 for _ in range(count)])
 	#     one_hot_indices = torch.cat([torch.zeros(count, 1, dtype=torch.long, device=device), random_indices], dim=1)
 	#     input_presence[start_index:end_index] = input_presence[start_index:end_index].scatter(1, one_hot_indices, 1)
 	#     start_index = end_index
@@ -450,19 +450,39 @@ def prepare_state(model):
 	# # Generate the orientation of first item independently for each trial
 	# first_item = torch.linspace(-torch.pi, torch.pi, fpf_trials, device=device).unsqueeze(1) # (trials,1)
 	# if max_item_num == 1:
-	#      input_thetas = first_item
+	#     input_thetas = first_item
 	# elif max_item_num > 1:
-	#     # Generate the remaining items, which are shared across all trials
-	#     shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
-	#     # Concatenate the first item (unique per trial) with the shared items (same for all trials)
-	#     input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
+	# 	# Generate the remaining items, which are shared across all trials
+	# 	shared_items = (torch.rand(1, max_item_num - 1, device=device) * 2 * torch.pi) - torch.pi # (1, max_items-1)
+	# 	# Concatenate the first item (unique per trial) with the shared items (same for all trials)
+	# 	input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
 
+	'''
+	#--- Start: present 1 items ---#
+	# input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
+	# input_presence[:,0] = 1
+	
+	# theta_base = torch.linspace(-torch.pi, torch.pi, steps=fpf_trials, device=device)
+	# input_thetas = theta_base.unsqueeze(1).expand(-1, max_item_num)
+	#--- End: present 1 items ---#
+	'''
+
+	'''
+	#--- Start: present 2 items ---#
+	side_len = int(torch.round(torch.sqrt(torch.tensor(fpf_trials, dtype=torch.float32))))
+	# fpf_trials = side_len*2
 
 	input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
-	input_presence[:,0] = 1
-	
-	theta_base = torch.linspace(-torch.pi, torch.pi, steps=fpf_trials, device=device)
-	input_thetas = theta_base.unsqueeze(1).expand(-1, max_item_num)
+	input_presence[:, :2] = 1
+
+	theta_range = torch.linspace(-torch.pi, torch.pi, steps=side_len, device=device)
+	theta1, theta2 = torch.meshgrid(theta_range, theta_range, indexing='ij')  # [side_len, side_len]
+
+	input_thetas = torch.zeros(fpf_trials, max_item_num, device=device)
+	input_thetas[:, 0] = theta1.reshape(-1)
+	input_thetas[:, 1] = theta2.reshape(-1)
+	#--- End: present 2 items ---#
+	'''
 
 	u_t = generate_input(
 		presence=input_presence,

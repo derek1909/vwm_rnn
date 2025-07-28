@@ -121,10 +121,10 @@ def plot_results_vs_neurons(results, save_path, fig_size=(8, 3)):
 
 def main():
     # Parameters
-    EXP_NAME = "PoiNoise"
+    EXP_NAME = "OptimalModel_ILC"
     PARA_CATA = "model_params"
-    PARA_NAME = "spike_noise_factor"
-    PARA_LIST = [0.0, 0.005, 0.05, 0.5]
+    PARA_NAME = "ILC_noise"
+    PARA_LIST = [0.0, 0.01, 0.05, 0.1, 0.2]
 
     # Setup experiment
     exp_dir, config_path = setup_experiment(EXP_NAME)

@@ -1,16 +1,16 @@
 fpf_params:
-  fpf_N_init: 2
+  fpf_N_init: 512
   fpf_bool: true
   fpf_hps:
     lr_init: 1.0
-    max_iters: 2
+    max_iters: 500
     outlier_distance_scale: 10.0
     super_verbose: false
     verbose: false
-  fpf_names: ['fpf_NoFps']
+  fpf_names: ['fpf_NoFps', 'fpf_decode']
   fpf_noise_scale: 0.0
   fpf_pca_bool: false
-  fpf_trials: 32
+  fpf_trials: 100
 
 model_and_logging_params:
   rnn_name: exp_Neuron256Input120RadLoss/spike_noise_factor-0.30000000

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 # Parameters
-gain = 0.14
+gain = 0.13
 theta = gain * 30
 
 # Define the activation function Φ(x)

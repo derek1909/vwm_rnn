@@ -62,13 +62,13 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration
     unique_fps, _ = fpf.find_fixed_points(sampled_states, inputs)
 
     # Visualization
-    trials_to_plot = list(range(min(64, fpf_trials)))
+    trials_to_plot = list(range(min(100, fpf_trials)))
     fig = plot_fps(
         unique_fps,
         state_traj=hidden_states,
         plot_batch_idx=trials_to_plot,
         plot_start_time=0,
-        save_path=f'{model_dir}/{fpf_name}',
+        save_path=f'{model_dir}/{fpf_name}_two_items',
         plot_fps=plot_Fps,
         thetas=thetas
         )
