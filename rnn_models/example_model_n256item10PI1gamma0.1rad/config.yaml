@@ -1,0 +1,55 @@
+model_params:
+  max_item_num: 10
+  item_num: [1,2,3,4,5,6,7,8,9,10]
+  num_neurons: 256
+  dt: 10
+  tau_max: 300
+  tau_min: 50
+  ILC_noise: 0.01
+  spike_noise_factor: 0.1
+  spike_noise_type: 'gamma'
+  positive_input: true
+  input_strength: 120
+  saturation_firing_rate: 60
+  dales_law: true
+  T_init: 20
+  T_stimi: 500
+  T_delay: 1000
+  T_decode: 500
+
+training_params:
+  train_rnn: true
+  load_history: true
+  use_scripted_model: false
+  num_iterations: 50000
+  error_def: 'rad'
+  eta: 0.0001
+  lambda_reg: 0.00001
+  lambda_err: 1.0
+  num_trials: 512
+  logging_period: 50
+  early_stop_patience: 600
+  adaptive_lr_patience: 400
+
+model_and_logging_params:
+  rnn_name: "example_model"
+  cuda_device: 0
+  plot_weights_bool: true
+  error_dist_bool: true
+  fit_mixture_bool: true
+  snr_analy_bool: true
+  mixed_selec_bool: true
+
+fpf_params: 
+  fpf_bool: true
+  fpf_pca_bool: true
+  fpf_names: ['fpf_NoFps', 'fpf_decode']
+  fpf_trials: 20
+  fpf_N_init: 20
+  fpf_noise_scale: 0.0
+  fpf_hps:
+    max_iters: 50
+    lr_init: 0.01
+    outlier_distance_scale: 10.0
+    verbose: false
+    super_verbose: false

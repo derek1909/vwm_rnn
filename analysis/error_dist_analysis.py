@@ -119,11 +119,11 @@ def error_dist_analysis(model):
     hist_png  = f'{out_dir}/error_hist.png'
     var_png  = f'{out_dir}/error_var.png'
     kurt_png  = f'{out_dir}/error_kurt.png'
-    # vm_fit_png   = f'{out_dir}/vm_error_fit.png'
-    # gauss_fit_png   = f'{out_dir}/gauss_error_fit.png'
-    # vm_sd_png = f'{out_dir}/vm_sd_compare.png'
-    # gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
-    # w_png = f'{out_dir}/uniform_w_compare.png'
+    vm_fit_png   = f'{out_dir}/vm_error_fit.png'
+    gauss_fit_png   = f'{out_dir}/gauss_error_fit.png'
+    vm_sd_png = f'{out_dir}/vm_sd_compare.png'
+    gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
+    w_png = f'{out_dir}/uniform_w_compare.png'
     yaml_path = f'{out_dir}/fit_summary.yaml'
 
     # ------------------ generate test data ------------------
@@ -215,9 +215,19 @@ def error_dist_analysis(model):
     # Compute stats for each condition
     for i, err in enumerate(err_sets):
         n = item_num[i]
+        # Compute raw linear and circular standard deviations
+        raw_line_std = float(np.std(err))
+        
+        # Circular standard deviation from mean resultant length
+        m1 = np.mean(np.exp(1j * err))
+        R_bar = np.abs(m1)
+        raw_circ_std = _circ_sd(R_bar)
+        
         summary[n] = {
             "circular_variance": float(circular_variance(err)),
-            "circular_kurtosis": float(circular_kurtosis(err))
+            "circular_kurtosis": float(circular_kurtosis(err)),
+            "raw_line_std": raw_line_std,
+            "raw_circ_std": raw_circ_std
         }
 
     # ----------------- Load human data from YAML -----------------
@@ -393,9 +403,11 @@ def error_dist_analysis(model):
     plt.close(fig_sd)
 
     # ---------- Gauss SD comparison figure  ----------
+    mix_gauss_sds = [summary[n]['gauss_sigma'] for n in item_num]
+    
     fig_sd = plt.figure(figsize=(5, 4))
     plt.plot(item_num, raw_line_sds, 'o-',  label='Empirical SD')
-    plt.plot(item_num, mix_vm_sds, 's--', label='Gauss SD')
+    plt.plot(item_num, mix_gauss_sds, 's--', label='Gauss SD')
     plt.xlabel('Number of items')
     plt.ylabel('Linear SD (rad)')
     plt.title('Raw vs. Gauss SD')

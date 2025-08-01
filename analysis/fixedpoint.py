@@ -80,7 +80,7 @@ def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration
         state_traj=hidden_states,
         plot_batch_idx=trials_to_plot,
         plot_start_time=0,
-        save_path=f'{model_dir}/{fpf_name}_two_items',
+        save_path=f'{model_dir}/{fpf_name}',
         plot_fps=plot_Fps,
         thetas=thetas
         )

@@ -1,0 +1,20 @@
+8:
+  circular_variance: 0.27926212549209595
+  circular_kurtosis: 2.1945502758026123
+  raw_line_std: 0.5432474613189697
+  raw_circ_std: 0.5284525752054925
+4:
+  circular_variance: 0.0751066654920578
+  circular_kurtosis: 1.8204313516616821
+  raw_line_std: 0.2751810848712921
+  raw_circ_std: 0.27405594797361826
+2:
+  circular_variance: 0.016763050109148026
+  circular_kurtosis: 0.14374104142189026
+  raw_line_std: 0.129479318857193
+  raw_circ_std: 0.12947219829291573
+1:
+  circular_variance: 0.004464718047529459
+  circular_kurtosis: -0.11987296491861343
+  raw_line_std: 0.06681723892688751
+  raw_circ_std: 0.06681854871891392

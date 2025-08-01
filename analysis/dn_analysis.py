@@ -98,13 +98,13 @@ def divisive_normalisation_analysis(model):
     y_min = min(w2_vals.min(), 0)
     x_max = max(w1_vals.max(), 1.2)
     y_max = max(w2_vals.max(), 1.2)
-    plt.xlim(x_min, x_max)
-    plt.ylim(y_min, y_max)
 
     # Scatter plot
     plt.figure(figsize=(5, 5))
     plt.fill_betweenx([0, 1], 0, 1, color='gray', alpha=0.2, label='DN Region')
     plt.scatter(w1_vals, w2_vals, c='orange', alpha=0.7, edgecolor='k')
+    plt.xlim(x_min, x_max)
+    plt.ylim(y_min, y_max)
 
     # Highlight DN region: 0 ≤ w1 ≤ 1 and 0 ≤ w2 ≤ 1
 
