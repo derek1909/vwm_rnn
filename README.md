@@ -54,7 +54,6 @@ vwm_rnn/
 ├── train.py               # Training loop and evaluation functions
 ├── utils.py               # Utility functions for data generation and visualization
 ├── run_exp.py             # Experiment runner script
-├── model_evolution_analysis.py  # Model evolution tracking
 ├── environment.yml        # Conda environment specification
 ├── early_stopping_pytorch/  # Early stopping utilities
 ├── analysis/              # Analysis modules
@@ -65,7 +64,7 @@ vwm_rnn/
 │   ├── error_dist_analysis.py  # Error distribution analysis
 │   ├── mixed_selectivity.py    # Mixed selectivity analysis
 │   ├── snr_analysis.py    # Signal-to-noise ratio analysis
-│   └── FixedPoints/       # Fixed point finder utilities
+│   └── FixedPoints/       # Fixed point finder packages
 ├── final_reports/         # Generated analysis plots and reports
 ├── other/                 # Additional analysis and utilities
 └── rnn_models/           # Saved model checkpoints and analysis results
