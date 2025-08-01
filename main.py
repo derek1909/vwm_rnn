@@ -1,3 +1,15 @@
+"""
+Main execution script for the visual working memory RNN.
+
+This module provides the main entry point for training and analyzing the 
+biologically plausible RNN model. It orchestrates model training, fixed point 
+analysis, and various neural analysis methods including SNR analysis, error 
+distribution analysis, and mixed selectivity analysis.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 # import torch
 # import os
 # import json

@@ -1,4 +1,16 @@
 
+"""
+Signal-to-noise ratio analysis for the visual working memory RNN.
+
+This module analyzes the signal-to-noise ratio properties of neural population
+activity during working memory tasks. It computes SNR for different set sizes,
+examines input vs. recurrent contributions, and visualizes neural activity
+patterns and decoding trajectories.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import os
 import numpy as np
 import matplotlib.pyplot as plt

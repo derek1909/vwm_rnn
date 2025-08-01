@@ -1,3 +1,14 @@
+"""
+Experiment runner for the visual working memory RNN.
+
+This module provides tools for running systematic experiments with different
+parameter configurations. It handles experiment setup, parameter sweeps,
+batch execution, and results aggregation for comparative analysis.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import yaml
 import subprocess
 import os

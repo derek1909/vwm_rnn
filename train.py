@@ -1,3 +1,14 @@
+"""
+Training module for the visual working memory RNN.
+
+This module contains training loops, loss functions, and evaluation metrics
+for the biologically plausible RNN model. It implements multiple loss functions
+including L2, sqrt-L2, and exponential similarity losses.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -10,89 +21,160 @@ from config import *
 from utils import save_model_and_history, generate_target, generate_input
 
 
-def calc_eval_error(decoded_thetas, target_thetas, presence):
+def calc_eval_error(decoded_thetas: torch.Tensor, target_thetas: torch.Tensor, 
+                   presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
     """
-    Calculate evaluation-specific angular error.
-
+    Calculate evaluation-specific angular error between decoded and target orientations.
+    
+    Handles the wraparound at ±π properly.
+    
     Args:
-        decoded_thetas (torch.Tensor): (trials, max_items) Decoded orientations.
-        target_thetas (torch.Tensor): (trials, max_items) Ground truth angles.
-        presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
-
+        decoded_thetas (torch.Tensor): Decoded orientations [trials, max_items]
+        target_thetas (torch.Tensor): Ground truth angles [trials, max_items] 
+        presence (torch.Tensor): Binary mask indicating item presence [trials, max_items]
+        
     Returns:
-        mean_ang_error (torch.Tensor): scalar. Mean angular error across trials.
-        var_ang_error (torch.Tensor): scalar. Variance of angular errors across trials.
+        tuple: (mean_angular_error, variance_angular_error)
+            - mean_angular_error (torch.Tensor): Scalar mean angular error
+            - variance_angular_error (torch.Tensor): Scalar variance of angular errors
     """
-    # Compute angular difference
-    # (trials,items) -> (trials,)
-    angular_diff = (target_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi  # (-pi,pi)
+    # Compute angular difference with proper wraparound handling
+    angular_diff = (target_thetas - decoded_thetas + torch.pi) % (2 * torch.pi) - torch.pi
+    
+    # Calculate error per trial, accounting for variable set sizes
     angular_error_per_trial = (angular_diff.abs() * presence).sum(dim=1) / presence.sum(dim=1)
 
-    # Compute mean and variance of angular errors
+    # Compute statistics across trials
     mean_ang_error = angular_error_per_trial.mean()
     var_ang_error = angular_error_per_trial.var()
 
     return mean_ang_error, var_ang_error
 
 
-"""
-Calculate training error.
-
-Args:
-    u_hat (torch.Tensor): (steps, trials, max_items*2) Readout of the model, unnormalised.
-    u_0 (torch.Tensor): (trials, max_items*2) Ground truth target.
-    presence (torch.Tensor): (trials, max_items) Binary mask indicating presence of items.
-
-Returns:
-    mean_error (torch.Tensor): scalar. Mean error across trials.
-    var_error (torch.Tensor): scalar. Variance of errors across trials.
-"""
-def _train_error_l2(u_hat, u_0, presence):
+def _train_error_l2(u_hat: torch.Tensor, u_0: torch.Tensor, 
+                   presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate L2 training error.
+    
+    Computes squared L2 error between the time-averaged model output and
+    the ground truth cosine/sine representations.
+    
+    Args:
+        u_hat (torch.Tensor): Model readout [steps, trials, max_items*2]
+        u_0 (torch.Tensor): Ground truth target [trials, max_items*2]
+        presence (torch.Tensor): Binary mask [trials, max_items]
+        
+    Returns:
+        tuple: (mean_error, variance_error) - scalar training error statistics
+    """
+    # Expand presence mask to cover both cos and sin components
     expanded_presence = presence.repeat_interleave(2, dim=1)
+    
+    # Calculate per-trial error with presence masking
     error_per_trial = ((u_0 - u_hat.mean(dim=0))**2 * expanded_presence).sum(dim=1) / presence.sum(dim=1)
+    
     return error_per_trial.mean(), error_per_trial.var()
 
-def _train_error_sqrtl2(u_hat, u_0, presence):
+
+def _train_error_sqrtl2(u_hat: torch.Tensor, u_0: torch.Tensor, 
+                       presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate square-root L2 training error (more robust to outliers).
+    
+    Computes the square root of L2 norm between predicted and target
+    2D vectors for each item.
+    
+    Args:
+        u_hat (torch.Tensor): Model readout [steps, trials, max_items*2]
+        u_0 (torch.Tensor): Ground truth target [trials, max_items*2]
+        presence (torch.Tensor): Binary mask [trials, max_items]
+        
+    Returns:
+        tuple: (mean_error, variance_error) - scalar training error statistics
+    """
     steps, trials, _ = u_hat.shape
-    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2).mean(dim=0)  # (num_trials, max_items, 2)
-    u_0_reshaped = u_0.reshape(trials, -1, 2)  # (num_trials, max_items, 2)
-    error_per_item = 10 * torch.linalg.norm( (u_0_reshaped-u_hat_reshaped), dim=-1 ).sqrt()  # (trials, max_items)
-    error_per_trial = (error_per_item * presence).sum(dim=1) / presence.sum(dim=1)  # (trials,)
+    
+    # Reshape to separate items and their cos/sin components
+    u_hat_reshaped = u_hat.reshape(steps, trials, -1, 2).mean(dim=0)  # [trials, max_items, 2]
+    u_0_reshaped = u_0.reshape(trials, -1, 2)  # [trials, max_items, 2]
+    
+    # Calculate sqrt of L2 norm per item
+    error_per_item = 10 * torch.linalg.norm(u_0_reshaped - u_hat_reshaped, dim=-1).sqrt()
+    
+    # Average over items with presence masking
+    error_per_trial = (error_per_item * presence).sum(dim=1) / presence.sum(dim=1)
+    
     return error_per_trial.mean(), error_per_trial.var()
 
-def _train_error_exp(u_hat, u_0, presence):
+
+def _train_error_exp(u_hat: torch.Tensor, u_0: torch.Tensor, 
+                    presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate exponential similarity-based training error.
+    
+    Uses angular distance and exponential decay to create a similarity-based
+    loss function that emphasizes angular precision.
+    
+    Args:
+        u_hat (torch.Tensor): Model readout [steps, trials, max_items*2]
+        u_0 (torch.Tensor): Ground truth target [trials, max_items*2]
+        presence (torch.Tensor): Binary mask [trials, max_items]
+        
+    Returns:
+        tuple: (mean_error, variance_error) - scalar training error statistics
+    """
     steps, trials, _ = u_hat.shape
-    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
-    u_0_reshaped = u_0.reshape(trials, -1, 2) # (num_trials, max_items, 2)
+    
+    # Reshape to separate cos/sin components
+    u_hat_reshaped = u_hat.reshape(steps, trials, -1, 2)  # [steps, trials, max_items, 2]
+    u_0_reshaped = u_0.reshape(trials, -1, 2)  # [trials, max_items, 2]
 
-    # 1) Normalize both to unit length along the last dim
-    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)   # shape (steps, trials, items, 2)
+    # Normalize predictions to unit length (project onto unit circle)
+    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)
+    
+    # Average over time steps
+    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # [trials, max_items, 2]
 
-    # 2) Avg over time
-    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # (num_trials, max_items, 2)
+    # Compute cosine of angular error via dot product
+    dot = torch.sum(u_0_reshaped * u_hat_reshaped_norm_mean, dim=-1)  # [trials, max_items]
+    
+    # Convert to angular distance and similarity score
+    delta = torch.acos(torch.clamp(dot, -1, 1))  # Angular distance in [0, π]
+    similarity = 10 * torch.exp(-3 * delta / torch.pi)  # Exponential similarity
 
-    # 3) Compute cosine of the angular error 
-    dot = torch.sum(u_0_reshaped * u_hat_reshaped_norm_mean, dim=-1)  # (trials, items)
-
-    # 4) Recover Δθ and similarity S(Δθ)
-    delta = torch.acos(dot)                    # in radians. [0, pi]
-    similarity = 10*torch.exp(-3 * delta / torch.pi)  # (trials, items)
-
-    # 5) Final loss =  − S
-    error_per_trial = (-similarity*presence).sum(dim=1) / presence.sum(dim=1)   # -> (trials,)
-
+    # Calculate negative similarity as loss
+    error_per_trial = (-similarity * presence).sum(dim=1) / presence.sum(dim=1)
+    
     return error_per_trial.mean(), error_per_trial.var()
 
-def _train_error_rad(u_hat, u_0, presence):
+
+def _train_error_rad(u_hat: torch.Tensor, u_0: torch.Tensor, 
+                    presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate angular (radian) training error.
+    
+    Directly computes angular error in radians between predicted and target
+    orientations, similar to evaluation metric but used for training.
+    
+    Args:
+        u_hat (torch.Tensor): Model readout [steps, trials, max_items*2]
+        u_0 (torch.Tensor): Ground truth target [trials, max_items*2]
+        presence (torch.Tensor): Binary mask [trials, max_items]
+        
+    Returns:
+        tuple: (mean_error, variance_error) - scalar training error statistics
+    """
     steps, trials, _ = u_hat.shape
-    u_hat_reshaped = u_hat.reshape(steps,trials, -1, 2) # (steps, num_trials, max_items, 2)
-    u_0_reshaped = u_0.reshape(trials, -1, 2) # (num_trials, max_items, 2)
+    
+    # Reshape to separate cos/sin components
+    u_hat_reshaped = u_hat.reshape(steps, trials, -1, 2)  # [steps, trials, max_items, 2]
+    u_0_reshaped = u_0.reshape(trials, -1, 2)  # [trials, max_items, 2]
 
-    # 1) Normalize both to unit length along the last dim
-    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)   # shape (steps, trials, items, 2)
+    # Normalize predictions to unit length
+    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)   # [steps, trials, items, 2]
 
-    # 2) Avg over time
-    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # (num_trials, max_items, 2)
+    # Average over time steps
+    u_hat_reshaped_norm_mean = u_hat_norm.mean(dim=0)  # [trials, max_items, 2]
 
     # 3) Compute cosine of the angular error 
     dot = torch.sum(u_0_reshaped * u_hat_reshaped_norm_mean, dim=-1)  # (trials, items)

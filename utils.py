@@ -1,3 +1,15 @@
+"""
+Utility functions for the visual working memory RNN.
+
+This module provides essential utility functions for data generation, visualization,
+model saving/loading, and result analysis. It includes functions for generating
+input stimuli, target representations, plotting training history, and managing
+model checkpoints.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import torch
 import matplotlib.pyplot as plt
 import json
@@ -9,8 +21,11 @@ from rnn import *
 from config import *
 
 def generate_target(presence, theta, stimuli_present=True):
+    """Generate target output vectors from orientations and presence masks."""
     max_item_num = presence.shape[1]
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
+    
+    # Convert orientations to cosine/sine pairs for each item
     for i in range(max_item_num):
         u_0[:, 2 * i] = presence[:, i] * ( torch.cos(theta[:, i]) )
         u_0[:, 2 * i + 1] = presence[:, i] * ( torch.sin(theta[:, i]) )
@@ -49,46 +64,49 @@ def generate_input(presence, theta, input_strength=40, noise_level=0.0, T_init=0
     # Stack cos and sin into a single tensor along the last dimension
     # Then multiply by presence to zero-out absent items
     if positive_input:
+        # Transform to positive input space using 3D encoding
         u_0 = ( torch.stack((
                     1 + cos_theta / math.sqrt(2) + sin_theta / math.sqrt(6), 
                     1 - cos_theta / math.sqrt(2) + sin_theta / math.sqrt(6),
                     1 - 2 * sin_theta / math.sqrt(6),
                 ), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 3)
     else:
+        # Standard 2D cosine/sine encoding
         u_0 = ( torch.stack((cos_theta, sin_theta), dim=-1) ) * presence.unsqueeze(-1) # (num_trials, max_item_num, 2)
 
     # Reshape to match output shape (combine cos and sin into one dimension)
     u_0 = u_0.view(num_trials, -1)  # (num_trials, 3 * max_item_num)
 
-    # Create a mask for stimuli presence at each time step
+    # Create temporal mask: stimuli only present during stimulus period
     stimuli_present_mask = (torch.arange(steps, device=device) * dt >= T_init) & \
                            (torch.arange(steps, device=device) * dt < T_init + T_stimi)
     stimuli_present_mask = stimuli_present_mask.float().unsqueeze(-1).unsqueeze(-1)  # (steps, 1, 1)
 
-    # Apply the stimuli mask
+    # Apply temporal mask and normalize by number of items
     u_t_stack = u_0.unsqueeze(0) * stimuli_present_mask  # (steps, num_trials, 3 * max_item_num)
-
-    # Swap dimensions 0 and 1 to get (num_trials, steps, 3 * max_item_num)
-    u_t_stack = u_t_stack.transpose(0, 1) * input_strength / max_item_num
+    u_t_stack = u_t_stack.transpose(0, 1) * input_strength / max_item_num  # (num_trials, steps, 3 * max_item_num)
 
     return u_t_stack
 
 def plot_results(decoded_orientations_dict):
+    """Plot decoded orientations over time with target references."""
     plt.figure(figsize=(5,4))
     time_steps = torch.tensor([step * dt for step in range(simul_steps)], device=device)
 
-    # Plot response lines and target curves
+    # Plot response trajectories and target horizontal lines
     for angle_target, decoded_orientations in decoded_orientations_dict.items():
         line, = plt.plot(time_steps.cpu(), decoded_orientations, marker='o', linestyle='-', markersize=3)
         plt.axhline(y=angle_target, color=line.get_color(), linestyle='--')
 
+    # Create legend elements
     response_legend = plt.Line2D([0], [0], color='blue', marker='o', linestyle='-', markersize=4, label='Response')
     target_legend = plt.Line2D([0], [0], color='blue', linestyle='--', label='Target')
     stimulus_period_legend = plt.Line2D([0], [0], color='orange', lw=5, alpha=0.4, label="Stimulus period")
     decode_period_legend = plt.Line2D([0], [0], color='green', lw=5, alpha=0.3, label="Decoding period")
 
-    plt.axvspan(T_init, T_stimi + T_init, color='orange', alpha=0.15)
-    plt.axvspan(T_stimi + T_init + T_delay, T_simul, color='green', alpha=0.1)
+    # Highlight task periods
+    plt.axvspan(T_init, T_stimi + T_init, color='orange', alpha=0.15)        # Stimulus
+    plt.axvspan(T_stimi + T_init + T_delay, T_simul, color='green', alpha=0.1)  # Decode
     plt.title('Decoded Memory Orientations vs. Time')
     plt.xlabel('Time Steps')
     plt.ylabel('Orientation (radians)')
@@ -97,14 +115,12 @@ def plot_results(decoded_orientations_dict):
     # plt.show()
 
 def plot_training_history(error_per_iteration, error_std_per_iteration, activation_per_iteration):
-    """
-    Plots training curves for error (with error bar) and activation penalty.
-    """
-    # Create figure and axes
+    """Plot training curves for error (with std) and average firing rate."""
+    # Create figure with dual y-axes
     fig, ax1 = plt.subplots(figsize=(5, 4))
     iterations = np.arange(1, len(error_per_iteration) + 1)
 
-    # Plot Error curve on the left y-axis with error bars
+    # Plot error curve with confidence bands
     error_color = 'blue'
     ax1.plot(iterations, error_per_iteration, label="Error", color=error_color, marker='o', markersize=2)
     ax1.fill_between(
@@ -118,32 +134,30 @@ def plot_training_history(error_per_iteration, error_std_per_iteration, activati
     ax1.set_xlabel('iteration')
     ax1.set_ylabel('Error Loss', color=error_color)
     ax1.tick_params(axis='y', labelcolor=error_color)
-    # ax1.set_yscale('log')
-    # ax1.set_ylim(1e-3, 4)
     ax1.grid(True)
 
-    # Calculate and annotate the average of the last 50 Error values
+    # Annotate final error value
     ax1.axhline(y=error_per_iteration[-1], color=error_color, linestyle='--', alpha=0.7)
     ax1.annotate(
-        f"{error_per_iteration[-1]:.3f}",  # Format the annotation to 3 decimal places
-        xy=(iterations[-1], error_per_iteration[-1]),  # Position it at the last iteration's error value
-        xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+        f"{error_per_iteration[-1]:.3f}",
+        xy=(iterations[-1], error_per_iteration[-1]),
+        xytext=(5, 0), textcoords="offset points",
         color=error_color, fontsize=9, fontweight="bold"
     )
 
-    # Create a second y-axis for Activation Penalty
+    # Plot activation on secondary y-axis
     activation_color = 'orange'
     ax2 = ax1.twinx()
     ax2.plot(iterations, activation_per_iteration, label="Activation", color=activation_color, marker='o', markersize=2)
     ax2.set_ylabel('Ave Firing Rate (Hz)', color=activation_color)
     ax2.tick_params(axis='y', labelcolor=activation_color)
 
-    # Calculate and annotate the average of the last 50 Activation Penalty values
+    # Annotate final activation value
     ax2.axhline(y=activation_per_iteration[-1], color=activation_color, linestyle='--', alpha=0.7)
     ax2.annotate(
-        f"{activation_per_iteration[-1]:.3f}Hz",  # Format the annotation to 3 decimal places
-        xy=(iterations[-1], activation_per_iteration[-1]),  # Position it at the last iteration's error value
-        xytext=(5, 0), textcoords="offset points",  # Offset slightly for clarity
+        f"{activation_per_iteration[-1]:.3f}Hz",
+        xy=(iterations[-1], activation_per_iteration[-1]),
+        xytext=(5, 0), textcoords="offset points",
         color=activation_color, fontsize=9, fontweight="bold"
     )
     
@@ -152,42 +166,28 @@ def plot_training_history(error_per_iteration, error_std_per_iteration, activati
     # plt.show()
 
 def plot_group_training_history(iterations, group_errors, group_stds, group_activ, item_num, logging_period):
-    """
-    Plots the error and error bars for each group across iterations, with each group in a separate subplot,
-    and annotates the end value for each group.
-
-    Parameters:
-    - iterations: epch number
-    - group_errors: List of lists, where each sublist contains mean errors for a group over iterations.
-    - group_stds: List of lists, where each sublist contains standard deviations of errors for a group over iterations.
-    - group_activ: List of lists, where each sublist contains average activation penalties for a group over iterations.
-    - item_num: List of the number of items in each group (e.g., [1, 2, 3, 4] for 4 groups).
-    - logging_period: The interval of iterations at which the errors are recorded.
-    """
+    """Plot training history separately for each set size with dual y-axes."""
     num_groups = len(group_errors)
 
     fig, axes = plt.subplots(num_groups, 1, figsize=(8,2*num_groups), sharex=True)
-    if num_groups == 1:  # if only one group exists
+    if num_groups == 1:  # Handle single group case
         axes = [axes]
 
-    colormap = plt.cm.tab10  # Change colormap if desired
+    colormap = plt.cm.tab10
+    err_color = colormap(1 % 10)    # Blue for errors
+    activ_color = colormap(4 % 10)  # Orange for activations
 
-    err_color = colormap(1 % 10)  # Ensure color reuse for more than 10 groups
-    activ_color = colormap(4 % 10)  # Ensure color reuse for more than 10 groups
-
-    # Plot each group in its subplot
+    # Plot each set size in separate subplot
     for i, (errors, stds, activ) in enumerate(zip(group_errors, group_stds, group_activ)):
         errors = np.array(errors)
         stds = np.array(stds)
 
-        # Plot errors
+        # Plot error with confidence bands
         line_error, = axes[i].plot(
             iterations, errors, 
             label="Error",
             color=err_color,
-            # marker='o', markersize=3
         )
-        # Plot error bars
         axes[i].fill_between(
             iterations,
             errors - stds,
@@ -203,37 +203,34 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
         axes[i].grid(True)
         axes[i].set_ylim(0, 2)
 
-
-        # Plot activations
+        # Plot firing rates on secondary axis
         ax2 = axes[i].twinx()
         line_activ, = ax2.plot(
             iterations, activ,
             label="Activation",
             color=activ_color,
-            # marker='o', markersize=
         )
         ax2.set_ylabel('Ave Firing Rate (Hz)', color=activ_color)
         ax2.tick_params(axis='y', labelcolor=activ_color)
 
-        # Add the end value annotation for activation
+        # Annotate final values with background boxes
         ax2.annotate(
-            f"{activ[-1]:.3f} Hz",  # Format the annotation to 3 decimal places
-            xy=(iterations[-1], activ[-1]),  # Position it at the last iteration's error value
-            xytext=(-20, -20), textcoords="offset points",  # Offset slightly for clarity
+            f"{activ[-1]:.3f} Hz",
+            xy=(iterations[-1], activ[-1]),
+            xytext=(-20, -20), textcoords="offset points",
             color=activ_color, fontsize=10, fontweight="bold",
-            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')
         )
-        # Add the end value annotation
         axes[i].annotate(
-            f"{errors[-1]:.3f} rad",  # Format the annotation to 3 decimal places
-            xy=(iterations[-1], errors[-1]),  # Position it at the last iteration's error value
-            xytext=(-20, -15), textcoords="offset points",  # Offset slightly for clarity
+            f"{errors[-1]:.3f} rad",
+            xy=(iterations[-1], errors[-1]),
+            xytext=(-20, -15), textcoords="offset points",
             color=err_color, fontsize=10, fontweight="bold",
-            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')  # White background
+            bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')
         )
 
 
-    # Create a global legend
+    # Create global legend at bottom
     fig.legend(
         handles=[
             line_error,  # Line for Error
@@ -242,33 +239,36 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
         ],
         labels=["Error",  "Error ± std", "Activation"],
         loc='lower center',
-        ncol=3  # Updated number of columns to fit the new entry
+        ncol=3
     )
 
-    # Set the x-axis label for the last subplot
+    # Set x-axis label for bottom subplot
     axes[-1].set_xlabel("Iterations")
 
+    # Save training history plot
     file_path = os.path.join(model_dir, f'training_history.png')
     plt.savefig(file_path, dpi=300)
 
     def plot_error_activ_vs_itemnum(errors, activs, plot_path):
+        """Helper function to plot final values vs set size."""
         fig, ax1 = plt.subplots(figsize=(8, 6))
-        # Plot error on the primary y-axis (ax1)
+        
+        # Plot error on primary y-axis
         line1, = ax1.plot(item_num, errors, marker='o', color=err_color, label='Error (rad)')
         ax1.set_xlabel('Item Number')
         ax1.set_ylabel('Error (rad)', color=err_color)
         ax1.tick_params(axis='y', labelcolor=err_color)
         ax1.grid(True)
-        ax1.set_ylim(bottom=0)  # Set lower limit to zero for ax1
+        ax1.set_ylim(bottom=0)
 
-        # Create a secondary y-axis for activation
+        # Plot activation on secondary y-axis
         ax2 = ax1.twinx()
         line2, = ax2.plot(item_num, activs, marker='s', color=activ_color, label='Activation (Hz)')
         ax2.set_ylabel('Activation (Hz)', color=activ_color)
         ax2.tick_params(axis='y', labelcolor=activ_color)
-        ax2.set_ylim(bottom=0)  # Set lower limit to zero for ax2
+        ax2.set_ylim(bottom=0)
 
-        # Combine the legends from both axes
+        # Combined legend
         lines = [line1, line2]
         labels = [line.get_label() for line in lines]
         fig.legend(lines, labels, loc='lower center', ncol=2)
@@ -277,7 +277,7 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
         plt.savefig(plot_path, dpi=300)
         plt.close()
     
-
+    # Generate comparison plots for first and final training states
     final_errors = [errors[-1] for errors in group_errors]
     final_activations = [activ[-1] for activ in group_activ]
     final_plot_path = os.path.join(model_dir, 'Final_error_activ_vs_itemnum.png')
@@ -290,10 +290,10 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     
 
 def save_model_and_history(model, history, model_dir, model_name="model", history_name="training_history.yaml"):
-    """Saves the model state and training history to the specified directory."""
+    """Save model state dict and training history to specified directory."""
     os.makedirs(model_dir, exist_ok=True)
 
-    # Save model
+    # Save model checkpoint
     if use_scripted_model:
         model_path = f'{model_dir}/models/scripted_{model_name}.pt'
         model.save(model_path)
@@ -301,22 +301,23 @@ def save_model_and_history(model, history, model_dir, model_name="model", histor
         model_path = f'{model_dir}/models/{model_name}.pth'
         torch.save(model.state_dict(), model_path)
 
-    # Save training history
+    # Save training metrics as YAML
     history_path = f'{model_dir}/{history_name}'
     with open(history_path, 'w') as f:
         yaml.dump(history, f, default_flow_style=False)
 
 def load_model_and_history(model, model_dir, model_name="model", history_name="training_history.yaml"):
-    """Loads the model state and training history from the specified directory."""
+    """Load model checkpoint and training history from directory."""
     history_path = f'{model_dir}/{history_name}'
 
     if os.path.exists(history_path):
-        # Load model
+        # Load training history to get latest iteration
         with open(history_path, 'r') as f:
             history = yaml.safe_load(f)
         iteration = history['iterations'][-1]
         model_name = f'model_iteration{iteration}'
 
+        # Load model checkpoint
         if use_scripted_model:
             model_path = f'{model_dir}/models/scripted_{model_name}.pt'
             if os.path.exists(model_path):

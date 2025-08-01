@@ -1,3 +1,14 @@
+"""
+Early stopping utility for PyTorch training.
+
+This module provides an early stopping mechanism to prevent overfitting during
+RNN training. It monitors validation loss and stops training when the loss
+stops improving for a specified number of epochs (patience).
+
+Author: Derek Jinyu Dong (adapted from PyTorch early stopping utilities)
+Date: 2024-2025
+"""
+
 # early_stopping.py
 import numpy as np
 import torch

@@ -1,3 +1,16 @@
+"""
+Fixed point analysis utilities for the visual working memory RNN.
+
+This module provides utility functions for fixed point analysis including
+visualization tools, state preparation, and analysis helpers. Originally based
+on FixedPointFinder utilities by Matt Golub, adapted for the visual working
+memory RNN project.
+
+Author: Derek Jinyu Dong (adapted from Matt Golub's original)
+Date: 2024-2025
+Original: @ Matt Golub, October 2018 (mgolub@cs.washington.edu)
+"""
+
 '''
 plot_utils.py
 Supports FixedPointFinder

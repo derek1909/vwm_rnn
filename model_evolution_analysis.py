@@ -1,4 +1,16 @@
 #!/usr/bin/env python
+"""
+Model evolution analysis for the visual working memory RNN.
+
+This module analyzes how the RNN model evolves during training by examining
+saved checkpoints at different training iterations. It provides visualization
+tools for tracking changes in neural activity, weight matrices, and error
+distributions over the course of training.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import os
 import sys
 import re

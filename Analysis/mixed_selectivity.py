@@ -1,3 +1,15 @@
+"""
+Mixed selectivity analysis for the visual working memory RNN.
+
+This module analyzes the tuning properties and mixed selectivity of individual
+neurons in the RNN. It computes vector strength for orientation tuning across
+different item positions, calculates Inverse Participation Ratio (IPR) to
+quantify mixed selectivity, and visualizes neural tuning profiles.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 from rnn import *
 from config import *
 from train import *

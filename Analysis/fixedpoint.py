@@ -1,3 +1,15 @@
+"""
+Fixed point analysis for the visual working memory RNN.
+
+This module implements neural fixed point analysis to understand the attractor
+dynamics of the trained RNN. It identifies stable fixed points, analyzes their
+properties, and visualizes the neural state space structure during different
+task phases (stimulus, delay, decode).
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import numpy as np
 import ipdb
 

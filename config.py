@@ -1,3 +1,15 @@
+"""
+Configuration management for the visual working memory RNN.
+
+This module handles loading and parsing of configuration files (YAML/JSON),
+extracts model parameters, training settings, and analysis options. It also
+manages automatic model naming, device selection, and directory setup for
+experiments.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 import torch
 import yaml
 import json

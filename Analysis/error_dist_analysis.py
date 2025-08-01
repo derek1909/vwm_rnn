@@ -1,4 +1,16 @@
 
+"""
+Error distribution analysis for the visual working memory RNN.
+
+This module analyzes the statistical properties of behavioral errors produced
+by the RNN model. It fits mixture models (von Mises + uniform, Gaussian + uniform)
+to error distributions, computes circular statistics (variance, kurtosis), and
+compares model behavior to human psychophysical data.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 from rnn import *
 from config import *
 from train import *

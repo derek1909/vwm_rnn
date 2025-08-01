@@ -1,3 +1,15 @@
+"""
+Divisive normalization analysis for the visual working memory RNN.
+
+This module analyzes divisive normalization mechanisms in the neural population
+by examining how neural responses scale with multiple inputs. It tests for
+sublinear summation effects and normalization strength when multiple items
+are presented simultaneously versus individually.
+
+Author: Derek Jinyu Dong
+Date: 2024-2025
+"""
+
 from rnn import *
 from config import *
 from train import *
