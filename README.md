@@ -57,7 +57,7 @@ vwm_rnn/
 ├── model_evolution_analysis.py  # Model evolution tracking
 ├── environment.yml        # Conda environment specification
 ├── early_stopping_pytorch/  # Early stopping utilities
-├── Analysis/              # Analysis modules
+├── analysis/              # Analysis modules
 │   ├── __init__.py
 │   ├── fixedpoint.py      # Fixed point analysis
 │   ├── fixedpoint_utils.py

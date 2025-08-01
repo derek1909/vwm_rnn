@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import os
 
 # Paths
-human_yaml_path = "/homes/jd976/working/vwm_rnn/Analysis/behavior_summary.yaml"
+human_yaml_path = "/homes/jd976/working/vwm_rnn/analysis/behavior_summary.yaml"
 model_yaml_paths = [
     "/homes/jd976/working/vwm_rnn/final_reports/OptimalModel_check_n64item10PI1gamma0.2l2/error_dist/fit_summary.yaml",
     "/homes/jd976/working/vwm_rnn/final_reports/spike_noise_factor-0.30000000_n256item10PI1gamma0.3rad/error_dist/fit_summary.yaml"

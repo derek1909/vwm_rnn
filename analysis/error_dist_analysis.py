@@ -221,7 +221,7 @@ def error_dist_analysis(model):
         }
 
     # ----------------- Load human data from YAML -----------------
-    human_yaml_path = "/homes/jd976/working/vwm_rnn/Analysis/behavior_summary.yaml"
+    human_yaml_path = "/homes/jd976/working/vwm_rnn/analysis/behavior_summary.yaml"
     with open(human_yaml_path, "r") as f:
         human_data = yaml.safe_load(f)
 
@@ -276,7 +276,7 @@ def error_dist_analysis(model):
     del angular_diff, input_presence, input_thetas
     torch.cuda.empty_cache(); gc.collect()
 
-"""
+
     # ==================================================================
     # =========================  mixture fitting  ======================
     # ==================================================================
@@ -420,4 +420,4 @@ def error_dist_analysis(model):
     fig_w.savefig(w_png, dpi=300)
     plt.close(fig_w)
     # print(f"Uniform weight comparison figure saved to: {w_png}")
-"""
+

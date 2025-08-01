@@ -6,7 +6,7 @@ model_params:
   tau_max: 300
   tau_min: 50
   ILC_noise: 0.01
-  spike_noise_factor: 0.05
+  spike_noise_factor: 0.1
   spike_noise_type: 'gamma'
   positive_input: true
   input_strength: 120
@@ -32,16 +32,16 @@ training_params:
   adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: "EasyTask1"
+  rnn_name: "example_model"
   cuda_device: 0
-  plot_weights_bool: false
-  error_dist_bool: false
-  fit_mixture_bool: false
-  snr_analy_bool: false
-  mixed_selec_bool: false
+  plot_weights_bool: true
+  error_dist_bool: true
+  fit_mixture_bool: true
+  snr_analy_bool: true
+  mixed_selec_bool: true
 
 fpf_params: 
-  fpf_bool: false
+  fpf_bool: true
   fpf_pca_bool: true
   fpf_names: ['fpf_NoFps', 'fpf_decode']
   fpf_trials: 20

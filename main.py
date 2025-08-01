@@ -19,11 +19,11 @@ from rnn import *
 from config import *
 from train import *
 from utils import *
-from Analysis.fixedpoint import fixed_points_finder
-from Analysis.snr_analysis import SNR_analysis
-from Analysis.error_dist_analysis import error_dist_analysis
-from Analysis.mixed_selectivity import mixed_selectivity_analysis
-from Analysis.dn_analysis import divisive_normalisation_analysis
+from analysis.fixedpoint import fixed_points_finder
+from analysis.snr_analysis import SNR_analysis
+from analysis.error_dist_analysis import error_dist_analysis
+from analysis.mixed_selectivity import mixed_selectivity_analysis
+from analysis.dn_analysis import divisive_normalisation_analysis
 
 if __name__ == "__main__":
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 

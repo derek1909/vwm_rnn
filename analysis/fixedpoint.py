@@ -14,8 +14,8 @@ import numpy as np
 import ipdb
 
 
-from Analysis.FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
-from Analysis.fixedpoint_utils import *
+from analysis.FixedPoints.FixedPointFinderTorch import FixedPointFinderTorch as FixedPointFinder
+from analysis.fixedpoint_utils import *
 
 def analyze_fixed_points(model, input_states, hidden_states, fpf_name, iteration, thetas):
     """

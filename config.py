@@ -95,12 +95,10 @@ fpf_trials = fpf_params["fpf_trials"]  # Number of trials per iteration
 fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
 fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
 
-# os.makedirs(model_dir, exist_ok=True)
-# destination_path = os.path.join(model_dir, os.path.basename(config_path))
-# if os.path.realpath(config_path) != os.path.realpath(destination_path):
-#     shutil.copyfile(config_path, destination_path)
-
-model_dir = os.path.dirname(config_path)
+os.makedirs(model_dir, exist_ok=True)
+destination_path = os.path.join(model_dir, os.path.basename(config_path))
+if os.path.realpath(config_path) != os.path.realpath(destination_path):
+    shutil.copyfile(config_path, destination_path)
 
 if torch.cuda.is_available():
     torch.cuda.set_device(cuda_device)
