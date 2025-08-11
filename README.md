@@ -62,28 +62,25 @@ vwm_rnn/
 │   ├── mixed_selectivity.py    # Mixed selectivity analysis
 │   ├── snr_analysis.py    # Signal-to-noise ratio analysis
 │   └── FixedPoints/       # Fixed point finder packages
-├── final_reports/         # Generated analysis plots and reports
+├── final_reports/         # Generated analysis plots and MEng dessertation
 ├── other/                 # Additional analysis and utilities
 └── rnn_models/           # Saved model checkpoints and analysis results
-```
-
-## Quick Start
-
-### Basic Training and Evaluation
-```bash
-# Move to project dir
-cd path_to_project/vwm_rnn/
-
-# Train with custom configuration stored in ./config.yaml
-python main.py
-
-# Train with configuration of an existing model
-python main.py --config path_to_model/config.yaml
 ```
 
 ## Distributed Training
 
 This project supports efficient distributed training using PyTorch's DistributedDataParallel (DDP) and torchrun utility. Please reduce `num_trials` when training on multiple GPUs to get accelerated training.
+
+### Basic Training and Evaluation
+See the next section for distributed and single-GPU training using torchrun (recommended for all use cases):
+
+```bash
+# Single GPU example:
+torchrun --nproc_per_node=1 main.py
+
+# With custom config:
+torchrun --nproc_per_node=1 main.py --config path_to_model/config.yaml
+```
 
 ### Single Node (1 or more GPUs)
 
