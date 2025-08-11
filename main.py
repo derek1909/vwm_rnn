@@ -31,21 +31,20 @@ from analysis.mixed_selectivity import mixed_selectivity_analysis
 from analysis.dn_analysis import divisive_normalisation_analysis
 
 
-def main_worker(rank, world_size):
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+def main_worker(rank, local_rank, world_size):
+
+    # 由 torchrun 设置 MASTER_ADDR, MASTER_PORT, RANK, WORLD_SIZE
     dist.init_process_group(backend='nccl', rank=rank, world_size=world_size)
 
     # 设置每个进程的device
-    torch.cuda.set_device(rank)
-    global local_device
-    local_device = f'cuda:{rank}'
+    torch.cuda.set_device(local_rank)
+    local_device = f'cuda:{local_rank}'
 
     # 构建模型并放到本地GPU
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
                            spike_noise_factor, saturation_firing_rate, local_device, positive_input, dales_law)
     model = model.to(local_device)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[rank])
+    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
 
     # 只在主进程做目录创建、文件复制、打印
@@ -101,6 +100,10 @@ def main_worker(rank, world_size):
 
 
 if __name__ == "__main__":
-    world_size = torch.cuda.device_count()
-    mp.spawn(main_worker, args=(world_size,), nprocs=world_size, join=True)
+    import torch
+    # torchrun 会自动设置 LOCAL_RANK, RANK, WORLD_SIZE
+    world_size = int(os.environ.get('WORLD_SIZE', torch.cuda.device_count()))
+    rank = int(os.environ.get('RANK', 0))
+    local_rank = int(os.environ.get('LOCAL_RANK', 0))
+    main_worker(rank, local_rank, world_size)
 
