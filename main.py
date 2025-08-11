@@ -33,21 +33,21 @@ from analysis.dn_analysis import divisive_normalisation_analysis
 
 def main_worker(rank, local_rank, world_size):
 
-    # 由 torchrun 设置 MASTER_ADDR, MASTER_PORT, RANK, WORLD_SIZE
+    # torchrun sets MASTER_ADDR, MASTER_PORT, RANK, WORLD_SIZE
     dist.init_process_group(backend='nccl', rank=rank, world_size=world_size)
 
-    # 设置每个进程的device
+    # Set device for each process
     torch.cuda.set_device(local_rank)
     local_device = f'cuda:{local_rank}'
 
-    # 构建模型并放到本地GPU
+    # Build model and move to local GPU
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
                            spike_noise_factor, saturation_firing_rate, local_device, positive_input, dales_law)
     model = model.to(local_device)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
 
-    # 只在主进程做目录创建、文件复制、打印
+    # Only the main process (rank 0) creates directories, copies files, and prints info
     if rank == 0:
         import shutil
         os.makedirs(model_dir, exist_ok=True)
@@ -58,17 +58,17 @@ def main_worker(rank, local_rank, world_size):
         print(f"Model directory: {model_dir}")
         print(f"Using DistributedDataParallel on {world_size} GPUs.")
 
-    # 加载模型和历史
+    # Load model and training history if needed
     if load_history:
         model, history = load_model_and_history(model, model_dir, device=local_device)
     else:
         history = None
 
-    # 训练
+    # Training
     if train_rnn:
         history = train(model, model_dir, history, rank=rank, world_size=world_size)
 
-    # 只在主进程做分析和画图
+    # Only the main process (rank 0) runs analysis and plotting
     if rank == 0:
         if fpf_bool:
             print(f"Running final Fixed Point Analysis...")
@@ -101,7 +101,6 @@ def main_worker(rank, local_rank, world_size):
 
 if __name__ == "__main__":
     import torch
-    # torchrun 会自动设置 LOCAL_RANK, RANK, WORLD_SIZE
     world_size = int(os.environ.get('WORLD_SIZE', torch.cuda.device_count()))
     rank = int(os.environ.get('RANK', 0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))

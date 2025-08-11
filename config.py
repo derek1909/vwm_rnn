@@ -46,12 +46,12 @@ num_neurons = model_params["num_neurons"]
 dt = model_params["dt"]
 tau_max = model_params["tau_max"]
 tau_min = model_params["tau_min"]
-ILC_noise = model_params["ILC_noise"] # rad
-spike_noise_factor = model_params["spike_noise_factor"] # [0,1]. k = 1/sqrt(M) where M is  #neurons in a single artificial neuron.
+ILC_noise = model_params["ILC_noise"] # Sensory noise in radians
+spike_noise_factor = model_params["spike_noise_factor"] # [0,1]. k = 1/sqrt(M) where M is number of neurons in a single artificial neuron.
 spike_noise_type = model_params["spike_noise_type"] # "gamma" or "normal"
-positive_input = model_params["positive_input"] # positive input. 0 if no need to be positive.
-input_strength = model_params["input_strength"] # mean value of Bu.
-saturation_firing_rate = model_params["saturation_firing_rate"] # mean value of Bu.
+positive_input = model_params["positive_input"] # Positive input. 0 if not required to be positive.
+input_strength = model_params["input_strength"] # Mean value of Bu.
+saturation_firing_rate = model_params["saturation_firing_rate"] # Mean value of Bu.
 dales_law = model_params["dales_law"]
 T_init = model_params["T_init"]
 T_stimi = model_params["T_stimi"]
@@ -94,7 +94,5 @@ fpf_N_init = fpf_params["fpf_N_init"] # Number of initial states for optimizatio
 fpf_trials = fpf_params["fpf_trials"]  # Number of trials per iteration
 fpf_noise_scale = fpf_params["fpf_noise_scale"] # Standard deviation of noise added to states
 fpf_hps = fpf_params["fpf_hps"]  # Hyperparameters for fixed point finder
-
-# model_dir = os.path.dirname(config_path)
 
 ## NOTE: No side effects (no directory creation, file copy, or print) in config.py

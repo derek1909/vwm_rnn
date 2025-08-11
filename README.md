@@ -70,12 +70,72 @@ vwm_rnn/
 
 ### Basic Training and Evaluation
 ```bash
+# Move to project dir
+cd path_to_project/vwm_rnn/
+
 # Train with custom configuration stored in ./config.yaml
 python main.py
 
 # Train with configuration of an existing model
-python main.py --config path_of_model/config.yaml
+python main.py --config path_to_model/config.yaml
 ```
+
+## Distributed Training
+
+This project supports efficient distributed training using PyTorch's DistributedDataParallel (DDP) and torchrun utility.
+
+### Single Node (1 or more GPUs)
+
+To train on a single machine with 1 or more GPUs:
+
+```bash
+CUDA_VISIBLE_DEVICES=GPU_INDICES torchrun --nproc_per_node=NUM_GPUS main.py
+```
+Replace `GPU_INDICES` with the GPU IDs you want to use, separated by commas (e.g., `0`, `1`, or `0,1`).
+For example, to use only GPU 1:
+```bash
+CUDA_VISIBLE_DEVICES=1 torchrun --nproc_per_node=1 main.py
+```
+To use GPU 0 and GPU 1:
+```bash
+CUDA_VISIBLE_DEVICES=0,1 torchrun --nproc_per_node=2 main.py
+```
+or simply:
+```bash
+torchrun --nproc_per_node=2 main.py #There only two gpus on each node of the CBL cluster anyway...
+```
+Replace `NUM_GPUS` with the number of GPUs you want to use (should match the number of IDs in `CUDA_VISIBLE_DEVICES`).
+
+### Multi-Node (Multiple Machines)
+
+To train across multiple machines (e.g., 3 nodes, 2 GPUs per node, total 6 GPUs):
+
+On each node, run the following command, changing `--node_rank` accordingly:
+
+```bash
+# On node 0 (master):
+torchrun --nnodes=3 --nproc_per_node=2 --node_rank=0 --master_addr="129.169.149.151" --master_port=12355 main.py
+# On node 1:
+torchrun --nnodes=3 --nproc_per_node=2 --node_rank=1 --master_addr="129.169.149.151" --master_port=12355 main.py
+# On node 2:
+torchrun --nnodes=3 --nproc_per_node=2 --node_rank=2 --master_addr="129.169.149.151" --master_port=12355 main.py
+```
+
+#### Argument Explanation
+
+- `--nnodes`: Total number of nodes (machines) participating in training.
+- `--nproc_per_node`: Number of processes to launch per node (usually equals the number of GPUs per node).
+- `--node_rank`: The rank (ID) of the current node (0 for master, 1 for the next, etc.).
+- `--master_addr`: IP address of the master node (node_rank=0). All nodes must use the same value. Use `hostname -I` to get IP address.
+- `--master_port`: Port on the master node for communication. Must be open and unused on all nodes.
+- `main.py`: The training entry script.
+
+**Notes:**
+- All nodes must have the same code, environment, and access to the same data.
+- The master node (node_rank=0) should be started first, or all nodes started nearly simultaneously.
+- If you use only one node, you can omit `--nnodes`, `--node_rank`, `--master_addr`, and `--master_port`.
+
+For more details, see the [PyTorch Distributed Documentation](https://pytorch.org/docs/stable/elastic/run.html).
 
 ## Configuration
 
@@ -125,7 +185,7 @@ Optimization and learning configuration:
 Output and analysis configuration:
 
 - **`rnn_name`** (str): Base name for saved models (default: "EasyTask1")
-- **`cuda_device`** (int): GPU device ID (default: 0)
+- ~~**`cuda_device`** (int): GPU device ID (default: 0)~~ Removed after adding DDP support
 - **`plot_weights_bool`** (bool): Generate weight visualizations (default: false)
 - **`error_dist_bool`** (bool): Run error distribution analysis (default: false)
 - **`fit_mixture_bool`** (bool): Fit mixture models to errors (default: false)

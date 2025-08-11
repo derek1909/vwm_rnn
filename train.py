@@ -326,7 +326,7 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
     # torch.autograd.set_detect_anomaly(True)
 
-    # 只在主进程显示进度条
+    # Only display progress bar in the main process (rank 0)
     pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") if rank == 0 else None
     for iteration in range(start_iteration, num_iterations):
         # Generate presence for each group
