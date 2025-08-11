@@ -13,15 +13,11 @@ This codebase implements a biologically-inspired RNN model that simulates visual
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [Usage](#usage)
 - [Analysis Tools](#analysis-tools)
-- [Key Features](#key-features)
-- [Contributing](#contributing)
 
 ## Installation
 
 ### Prerequisites
-- Python 3.9+
 - CUDA-capable GPU (optional but recommended)
 
 ### Environment Setup
@@ -84,15 +80,6 @@ python main.py --config path_of_model/config.yaml
 ## Configuration
 
 The model behavior is controlled through YAML configuration files with four main sections. The configuration system supports both YAML and JSON formats.
-
-### Usage
-```bash
-# Use default configuration
-python main.py
-
-# Use custom configuration file
-python main.py --config path/to/custom_config.yaml
-```
 
 ### Configuration Structure
 
