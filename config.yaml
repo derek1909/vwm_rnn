@@ -5,8 +5,8 @@ model_params:
   dt: 10
   tau_max: 300
   tau_min: 50
-  ILC_noise: 0.01
-  spike_noise_factor: 0.1
+  ILC_noise: 0.00
+  spike_noise_factor: 0.05
   spike_noise_type: 'gamma'
   positive_input: true
   input_strength: 120
@@ -22,7 +22,7 @@ training_params:
   load_history: false
   use_scripted_model: false
   num_iterations: 50000
-  error_def: 'rad'
+  error_def: 'norml2'
   eta: 0.0001
   lambda_reg: 0.00001
   lambda_err: 1.0
@@ -32,7 +32,7 @@ training_params:
   adaptive_lr_patience: 400
 
 model_and_logging_params:
-  rnn_name: "example_model"
+  rnn_name: "EasyTask2"
   cuda_device: 0
   plot_weights_bool: true
   error_dist_bool: true

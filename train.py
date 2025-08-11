@@ -188,9 +188,49 @@ def _train_error_rad(u_hat: torch.Tensor, u_0: torch.Tensor,
     return error_per_trial.mean(), error_per_trial.var()
 
 
+def _train_error_norml2(u_hat: torch.Tensor, u_0: torch.Tensor, 
+                       presence: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Calculate normalized L2 training error.
+    
+    Computes L2 error between normalized model output and normalized target
+    cosine/sine representations. Both u_hat and u_0 are normalized to unit
+    length before computing the L2 distance.
+    
+    Args:
+        u_hat (torch.Tensor): Model readout [steps, trials, max_items*2]
+        u_0 (torch.Tensor): Ground truth target [trials, max_items*2]
+        presence (torch.Tensor): Binary mask [trials, max_items]
+        
+    Returns:
+        tuple: (mean_error, variance_error) - scalar training error statistics
+    """
+    steps, trials, _ = u_hat.shape
+    
+    # Reshape to separate cos/sin components
+    u_hat_reshaped = u_hat.reshape(steps, trials, -1, 2)  # [steps, trials, max_items, 2]
+    u_0_reshaped = u_0.reshape(trials, -1, 2)  # [trials, max_items, 2]
+    
+    # Normalize predictions and targets to unit length
+    u_hat_norm = F.normalize(u_hat_reshaped, dim=-1)  # [steps, trials, max_items, 2]
+    u_0_norm = F.normalize(u_0_reshaped, dim=-1)  # [trials, max_items, 2]
+    
+    # Average predictions over time steps
+    u_hat_norm_mean = u_hat_norm.mean(dim=0)  # [trials, max_items, 2]
+    
+    # Calculate L2 error per item
+    error_per_item = torch.linalg.norm(u_0_norm - u_hat_norm_mean, dim=-1)  # [trials, max_items]
+    
+    # Average over items with presence masking
+    error_per_trial = (error_per_item * presence).sum(dim=1) / presence.sum(dim=1)
+    
+    return error_per_trial.mean(), error_per_trial.var()
+
+
 _ERROR_FN = {
     "sqrtl2":   _train_error_sqrtl2,
     "l2":       _train_error_l2,
+    "norml2":   _train_error_norml2,
     "exp":      _train_error_exp,
     "rad":      _train_error_rad,
 }
