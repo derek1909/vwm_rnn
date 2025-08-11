@@ -12,6 +12,7 @@ This codebase implements a biologically-inspired RNN model that simulates visual
 - [Installation](#installation)
 - [Project Structure](#project-structure)
 - [Quick Start](#quick-start)
+- [Distributed Training](#distributed-training)
 - [Configuration](#configuration)
 - [Analysis Tools](#analysis-tools)
 
@@ -82,7 +83,7 @@ python main.py --config path_to_model/config.yaml
 
 ## Distributed Training
 
-This project supports efficient distributed training using PyTorch's DistributedDataParallel (DDP) and torchrun utility.
+This project supports efficient distributed training using PyTorch's DistributedDataParallel (DDP) and torchrun utility. Please reduce `num_trials` when training on multiple GPUs to get accelerated training.
 
 ### Single Node (1 or more GPUs)
 
@@ -176,7 +177,7 @@ Optimization and learning configuration:
 - **`eta`** (float): Learning rate for Adam optimizer (default: 0.0001)
 - **`lambda_reg`** (float): L1 regularization coefficient (default: 0.00001)
 - **`lambda_err`** (float): Error penalty coefficient (default: 1.0)
-- **`num_trials`** (int): Batch size - trials per training iteration (default: 512)
+- **`num_trials`** (int): (Local) batch size - trials per training iteration on a single GPU. Reduce this size if training on multiple GPUs to get accelerated. (default: 512)
 - **`logging_period`** (int): Save progress every N iterations (default: 50)
 - **`early_stop_patience`** (int): Early stopping patience (default: 600)
 - **`adaptive_lr_patience`** (int): Learning rate reduction patience (default: 400)
