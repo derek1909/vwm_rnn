@@ -22,11 +22,11 @@ import yaml
 def _fit_vm_uniform(torch_errs, init_w=0.5, init_kappa=5.0,
                     lr=5e-2, epochs=800):
     raw_w     = torch.tensor([torch.logit(torch.tensor(init_w))],
-                                requires_grad=True, device=device)
-    raw_kappa = torch.tensor([init_kappa], device=device, requires_grad=True)
+                                requires_grad=True, device=torch_errs.device)
+    raw_kappa = torch.tensor([init_kappa], device=torch_errs.device, requires_grad=True)
 
     optim = torch.optim.Adam([raw_w, raw_kappa], lr=lr)
-    log_2pi = torch.log(torch.tensor(2 * math.pi, device=device))
+    log_2pi = torch.log(torch.tensor(2 * math.pi, device=torch_errs.device))
     for _ in range(epochs):
         optim.zero_grad()
         w     = torch.sigmoid(raw_w)                        # (0,1)
@@ -125,6 +125,8 @@ def error_dist_analysis(model):
     gauss_sd_png = f'{out_dir}/gauss_sd_compare.png'
     w_png = f'{out_dir}/uniform_w_compare.png'
     yaml_path = f'{out_dir}/fit_summary.yaml'
+
+    device = model.device
 
     # ------------------ generate test data ------------------
     torch.cuda.empty_cache()

@@ -30,7 +30,7 @@ from utils import *
 
 def prepare_state_snr(model, snr_item_num, T_init, T_stimi, T_delay, T_decode, dt):
     snr_trial_num = 1000 # i.e. repeated times of the same 
-    
+    device = model.device
     # np.random.seed(39)
     # torch.manual_seed(39)
 

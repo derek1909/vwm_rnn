@@ -17,8 +17,8 @@ from utils import *
 
 # --------------- Helper Functions ---------------
 def _calculate_vector_strength(r_decode: torch.Tensor,
-                                        input_thetas: torch.Tensor,
-                                        input_presence: torch.Tensor):
+                                input_thetas: torch.Tensor,
+                                input_presence: torch.Tensor):
     """
     Helper function: Calculates the vector strength for each neuron for a specific item.
     Args:
@@ -34,7 +34,7 @@ def _calculate_vector_strength(r_decode: torch.Tensor,
     """
     avg_r_decode = torch.mean(r_decode, dim=0)
 
-    vector_strength_output = torch.zeros((num_neurons, max_item_num), device=device)
+    vector_strength_output = torch.zeros((num_neurons, max_item_num), device=r_decode.device)
 
     for k_item in range(max_item_num):
         # Mask for trials where the k-th item was presented
@@ -226,6 +226,7 @@ def mixed_selectivity_analysis(model):
     os.makedirs(out_dir, exist_ok=True)
     Rik_png = f'{out_dir}/R_matrixT_with_IPR.png'
     ipr_png = f'{out_dir}/ipr_hist.png'
+    device = model.device
 
     # ------------------ generate test data ------------------
     item_num = [1] # Assume set size = 1

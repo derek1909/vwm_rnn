@@ -285,7 +285,9 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
 
     return mean_train_error, var_train_error, mean_eval_error, var_eval_error, activ_penalty
 
-def train(model, model_dir, history=None):
+def train(model, model_dir, history=None, rank=0, world_size=1):
+    real_model = model.module if hasattr(model, 'module') else model
+
     # If no history is provided, initialize empty history
     if history is None:
         history = {
@@ -304,6 +306,7 @@ def train(model, model_dir, history=None):
         start_iteration = history['iterations'][-1]
         start_lr = history["lr"][-1]
         
+    device = model.device
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=adaptive_lr_patience)
     early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
@@ -323,115 +326,121 @@ def train(model, model_dir, history=None):
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
     # torch.autograd.set_detect_anomaly(True)
 
-    with tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") as pbar_iteration:
-        for iteration in range(start_iteration, num_iterations):
-            # Generate presence for each group
-            input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
-            start_index = 0
-            for i, count in enumerate(trial_counts):
-                end_index = start_index + count
-                one_hot_indices = torch.stack([
-                    torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)
-                ])
-                input_presence_temp = input_presence.clone()
-                input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
-                input_presence = input_presence_temp
-                start_index = end_index
+    # 只在主进程显示进度条
+    pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") if rank == 0 else None
+    for iteration in range(start_iteration, num_iterations):
+        # Generate presence for each group
+        input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
+        start_index = 0
+        for i, count in enumerate(trial_counts):
+            end_index = start_index + count
+            one_hot_indices = torch.stack([
+                torch.randperm(max_item_num, device=device)[:item_num[i]] for _ in range(count)
+            ])
+            input_presence_temp = input_presence.clone()
+            input_presence_temp[start_index:end_index] = input_presence_temp[start_index:end_index].scatter(1, one_hot_indices, 1)
+            input_presence = input_presence_temp
+            start_index = end_index
 
-            # Update input_thetas every grad step
-            input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
+        # Update input_thetas every grad step
+        input_thetas = ((torch.rand(num_trials, max_item_num, device=device) * 2 * torch.pi) - torch.pi).requires_grad_()
 
-            # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
-            u_t = generate_input(
-                presence=input_presence,
-                theta=input_thetas,
-                input_strength=input_strength,
-                noise_level=ILC_noise,
-                T_init=T_init,
-                T_stimi=T_stimi,
-                T_delay=T_delay,
-                T_decode=T_decode,
-                dt=dt,
-            )
-            
-            r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
-            r_output_T = r_output.transpose(0, 1)  # (steps, trial, neuron)
+        # Generate input tensor for all trials and time steps. (num_trials, steps, 2 * max_item_num)
+        u_t = generate_input(
+            presence=input_presence,
+            theta=input_thetas,
+            input_strength=input_strength,
+            noise_level=ILC_noise,
+            T_init=T_init,
+            T_stimi=T_stimi,
+            T_delay=T_delay,
+            T_decode=T_decode,
+            dt=dt,
+        )
+        
+        r_output, _ = model(u_t, r0=None) # (trial, steps, neuron)
+        r_output_T = r_output.transpose(0, 1)  # (steps, trial, neuron)
 
-            # Calculate total loss
-            mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(model, r_output_T, input_thetas, input_presence, train_err=True)
-            total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
-            
-            optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
-            scheduler.step(total_loss)
-            earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
+        # Calculate total loss
+        mean_train_error, _, mean_eval_error, var_eval_error, activ_penalty = error_calc(real_model, r_output_T, input_thetas, input_presence, train_err=True)
+        total_loss = lambda_err * mean_train_error + lambda_reg * activ_penalty
+        
+        optimizer.zero_grad()
+        total_loss.backward()
+        optimizer.step()
+        scheduler.step(total_loss)
+        earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
 
-            if model.positive_input:
-                model.B.data = F.relu(model.B.data)  # Ensure B is non-negative
-            if model.dales_law:
-                model.W.data = F.relu(model.W.data)  # Ensure raw W is non-negative if dales law is applied.
+        if real_model.positive_input:
+            real_model.B.data = F.relu(real_model.B.data)  # Ensure B is non-negative
+        if real_model.dales_law:
+            real_model.W.data = F.relu(real_model.W.data)  # Ensure raw W is non-negative if dales law is applied.
+        
 
-            # Append errors and activs to the history buffers
-            error_buffer.append(mean_eval_error.item())
-            error_std_buffer.append(var_eval_error.sqrt().item())
-            activation_buffer.append((activ_penalty).item())
+        # Append errors and activs to the history buffers
+        error_buffer.append(mean_eval_error.item())
+        error_std_buffer.append(var_eval_error.sqrt().item())
+        activation_buffer.append((activ_penalty).item())
 
-            start_index = 0
-            for i, count in enumerate(trial_counts):
-                end_index = start_index + count
-                _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(model, 
-                                    r_output_T[:, start_index:end_index], 
-                                    input_thetas[start_index:end_index], 
-                                    input_presence[start_index:end_index], 
-                                    train_err=False)
+        start_index = 0
+        for i, count in enumerate(trial_counts):
+            end_index = start_index + count
+            _, _, gp_mean_eval_error, gp_var_eval_error, gp_activ_penalty = error_calc(real_model, 
+                                r_output_T[:, start_index:end_index], 
+                                input_thetas[start_index:end_index], 
+                                input_presence[start_index:end_index], 
+                                train_err=False)
 
-                group_error_buffers[i].append(gp_mean_eval_error.item())
-                group_activ_buffers[i].append(gp_activ_penalty.item())
-                group_std_buffers[i].append(gp_var_eval_error.sqrt().item())
+            group_error_buffers[i].append(gp_mean_eval_error.item())
+            group_activ_buffers[i].append(gp_activ_penalty.item())
+            group_std_buffers[i].append(gp_var_eval_error.sqrt().item())
 
-                start_index = end_index
+            start_index = end_index
 
-            if iteration % logging_period == 0:
 
-                # Calculate averages for buffers and store in history
-                history["error_per_iteration"].append(sum(error_buffer) / len(error_buffer))
-                history["error_std_per_iteration"].append(sum(error_std_buffer) / len(error_std_buffer))
-                history["activation_per_iteration"].append(sum(activation_buffer) / len(activation_buffer))
-                history["iterations"].append(iteration)
-                history["lr"].append(scheduler.get_last_lr()[0])
+        if iteration % logging_period == 0 and rank == 0:
+            # Calculate averages for buffers and store in history
+            history["error_per_iteration"].append(sum(error_buffer) / len(error_buffer))
+            history["error_std_per_iteration"].append(sum(error_std_buffer) / len(error_std_buffer))
+            history["activation_per_iteration"].append(sum(activation_buffer) / len(activation_buffer))
+            history["iterations"].append(iteration)
+            history["lr"].append(scheduler.get_last_lr()[0])
 
-                for i in range(len(group_error_buffers)):
-                    history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))
-                    history["group_std"][i].append(sum(group_std_buffers[i]) / len(group_std_buffers[i]))
-                    history["group_activ"][i].append(sum(group_activ_buffers[i]) / len(group_activ_buffers[i]))
+            for i in range(len(group_error_buffers)):
+                history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))
+                history["group_std"][i].append(sum(group_std_buffers[i]) / len(group_std_buffers[i]))
+                history["group_activ"][i].append(sum(group_activ_buffers[i]) / len(group_activ_buffers[i]))
 
-                # Clear all buffers
-                error_buffer.clear()
-                error_std_buffer.clear()
-                activation_buffer.clear()
-                for i in range(len(group_error_buffers)):
-                    if len(group_error_buffers[i]) > logging_period:
-                        group_error_buffers[i].clear()
-                        group_std_buffers[i].clear()
-                        group_activ_buffers[i].clear()
+            # Clear all buffers
+            error_buffer.clear()
+            error_std_buffer.clear()
+            activation_buffer.clear()
+            for i in range(len(group_error_buffers)):
+                if len(group_error_buffers[i]) > logging_period:
+                    group_error_buffers[i].clear()
+                    group_std_buffers[i].clear()
+                    group_activ_buffers[i].clear()
 
-                # Update progress bar
-                pbar_iteration.set_postfix({
+            # Update progress bar
+            if pbar is not None:
+                pbar.set_postfix({
                     "Error": f"{history['error_per_iteration'][-1]:.4f}rad",
                     "Activ": f"{history['activation_per_iteration'][-1]:.4f}Hz",
                     "lr": f"{scheduler.get_last_lr()[0]}",
                     "PatienceCnt": earlystop_counter,
                 })
-                pbar_iteration.update(logging_period)
+                pbar.update(logging_period)
 
-                # Save model and history every logging_period iterations
-                os.makedirs(f'{model_dir}/models', exist_ok=True)
-                save_model_and_history(model, history, 
-                                    model_dir,
-                                    model_name=f'model_iteration{iteration}')
+            # Save model and history every logging_period iterations
+            os.makedirs(f'{model_dir}/models', exist_ok=True)
+            save_model_and_history(model, history, 
+                                model_dir,
+                                model_name=f'model_iteration{iteration}')
 
-            if early_stopping.early_stop:
+        if early_stopping.early_stop:
+            if rank == 0:
                 print("Early stopping")
-                break
+            break
+    if pbar is not None:
+        pbar.close()
     return history

@@ -470,7 +470,7 @@ def prepare_state(model):
 	# 	# Concatenate the first item (unique per trial) with the shared items (same for all trials)
 	# 	input_thetas = torch.cat((first_item, shared_items.expand(fpf_trials, -1)), dim=1) # (trials, max_items)
 
-	
+	device = model.device
 	#--- Start: present 1 items ---#
 	input_presence = torch.zeros(fpf_trials, max_item_num, device=device)
 	input_presence[:,0] = 1

@@ -23,6 +23,7 @@ from config import *
 def generate_target(presence, theta, stimuli_present=True):
     """Generate target output vectors from orientations and presence masks."""
     max_item_num = presence.shape[1]
+    device = presence.device
     u_0 = torch.zeros(presence.size(0), 2 * max_item_num, device=device)
     
     # Convert orientations to cosine/sine pairs for each item
@@ -50,7 +51,7 @@ def generate_input(presence, theta, input_strength=40, noise_level=0.0, T_init=0
     T_simul = T_init + T_stimi + T_delay + T_decode
     steps = int(T_simul / dt)
     num_trials, max_item_num = presence.shape
-
+    device = presence.device
     # Add noise to theta
     theta_noisy = theta + noise_level * torch.randn(
         (num_trials, max_item_num), device=device
@@ -306,7 +307,7 @@ def save_model_and_history(model, history, model_dir, model_name="model", histor
     with open(history_path, 'w') as f:
         yaml.dump(history, f, default_flow_style=False)
 
-def load_model_and_history(model, model_dir, model_name="model", history_name="training_history.yaml"):
+def load_model_and_history(model, model_dir, model_name="model", history_name="training_history.yaml", device = None):
     """Load model checkpoint and training history from directory."""
     history_path = f'{model_dir}/{history_name}'
 

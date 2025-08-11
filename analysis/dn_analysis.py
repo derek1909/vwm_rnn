@@ -30,7 +30,7 @@ def divisive_normalisation_analysis(model):
             - ipr_R_values_per_neuron (np.ndarray): Array of IPR values for each neuron's R_i.
                 Shape: (num_neurons,).
     """
-
+    device = model.device
     # ------------------ bookkeeping / dirs ------------------
     out_dir = f'{model_dir}/divis_normal'
     os.makedirs(out_dir, exist_ok=True)
