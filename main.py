@@ -42,7 +42,7 @@ def main_worker(rank, local_rank, world_size):
 
     # Build model and move to local GPU
     model = RNNMemoryModel(max_item_num, num_neurons, dt, tau_min, tau_max, spike_noise_type, 
-                           spike_noise_factor, saturation_firing_rate, local_device, positive_input, dales_law)
+                           final_spike_noise_factor, saturation_firing_rate, local_device, positive_input, dales_law)
     model = model.to(local_device)
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
@@ -66,6 +66,7 @@ def main_worker(rank, local_rank, world_size):
 
     # Training
     if train_rnn:
+        # print("[Main] Multi-stage training (always enabled). Using multi_stage_train().")
         history = train(model, model_dir, history, rank=rank, world_size=world_size)
 
     # Only the main process (rank 0) runs analysis and plotting
@@ -88,7 +89,7 @@ def main_worker(rank, local_rank, world_size):
             if history:
                 plot_group_training_history(history["iterations"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
 
-            if snr_analy_bool and (spike_noise_factor>0):
+            if snr_analy_bool and (final_spike_noise_factor > 0):
                 print(f"Running Signal to Noise Ratio Analysis...")
                 SNR_analysis(model.module)
 

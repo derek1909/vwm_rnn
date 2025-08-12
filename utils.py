@@ -318,6 +318,29 @@ def load_model_and_history(model, model_dir, model_name="model", history_name="t
         iteration = history['iterations'][-1]
         model_name = f'model_iteration{iteration}'
 
+        # 兼容多stage字段
+        if "stage_switch_iters" not in history:
+            history["stage_switch_iters"] = []
+        if "stage_noise_levels" not in history:
+            from config import multi_stage_training_noise_levels
+            history["stage_noise_levels"] = multi_stage_training_noise_levels.copy()
+        if "current_stage" not in history:
+            # 推断当前stage
+            from config import num_iterations, multi_stage_training_noise_levels
+            num_stages = len(multi_stage_training_noise_levels)
+            stage_iters = [int(num_iterations // num_stages) for _ in range(num_stages)]
+            for i in range(num_iterations % num_stages):
+                stage_iters[i] += 1
+            stage_start_iters = [0]
+            for n in stage_iters[:-1]:
+                stage_start_iters.append(stage_start_iters[-1] + n)
+            for i, st in enumerate(stage_start_iters):
+                if iteration < st:
+                    history["current_stage"] = max(0, i-1)
+                    break
+            else:
+                history["current_stage"] = num_stages-1
+
         # Load model checkpoint
         if use_scripted_model:
             model_path = f'{model_dir}/models/scripted_{model_name}.pt'

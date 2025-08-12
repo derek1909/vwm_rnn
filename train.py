@@ -288,6 +288,9 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
 def train(model, model_dir, history=None, rank=0, world_size=1):
     real_model = model.module if hasattr(model, 'module') else model
 
+    # Multi-stage training setup: 切换stage由early stopping触发
+    num_stages = len(multi_stage_training_noise_levels)
+
     # If no history is provided, initialize empty history
     if history is None:
         history = {
@@ -299,13 +302,23 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
             "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
             "iterations": [],
             "lr": [],
+            "stage_switch_iters": [],
+            "stage_noise_levels": multi_stage_training_noise_levels.copy(),
+            "current_stage": 0,
         }
         start_iteration = 0
         start_lr = eta
     else:
+        # If history exists, restore training iteration number
         start_iteration = history['iterations'][-1]
         start_lr = history["lr"][-1]
-        
+        if "stage_switch_iters" not in history:
+            history["stage_switch_iters"] = []
+        if "stage_noise_levels" not in history:
+            history["stage_noise_levels"] = multi_stage_training_noise_levels.copy()
+        if "current_stage" not in history:
+            history["current_stage"] = 0
+
     device = model.device
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=adaptive_lr_patience)
@@ -324,11 +337,17 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
     remaining_trials = num_trials % len(item_num)  # Handle leftover trials
     # Adjust trials count for each group (distribute leftovers)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
-    # torch.autograd.set_detect_anomaly(True)
 
-    # Only display progress bar in the main process (rank 0)
-    pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration") if rank == 0 else None
+    # Only display progress bar in the main process (rank 0). Set 
+    pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration", smoothing=0.0, dynamic_ncols=True) if rank == 0 else None 
+
+    # stage切换逻辑：early stopping时切换
+    stage = history["current_stage"]
     for iteration in range(start_iteration, num_iterations):
+        noise_level = history["stage_noise_levels"][stage]
+        # 设置当前stage的spike noise
+        real_model.spike_noise_factor = noise_level
+
         # Generate presence for each group
         input_presence = torch.zeros(num_trials, max_item_num, device=device, requires_grad=True)
         start_index = 0
@@ -439,8 +458,16 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
 
         if early_stopping.early_stop:
             if rank == 0:
-                print("Early stopping")
-            break
+                print(f"Early stopping at iter {iteration}, stage {stage}")
+            # 切换到下一个stage（如果有）
+            if stage+1 < num_stages:
+                stage += 1
+                history["current_stage"] = stage
+                history["stage_switch_iters"].append(iteration)
+                early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
+                # 不break，直接进入下一个stage继续训练
+            else:
+                break
     if pbar is not None:
         pbar.close()
     return history

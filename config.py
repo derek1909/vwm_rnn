@@ -47,7 +47,7 @@ dt = model_params["dt"]
 tau_max = model_params["tau_max"]
 tau_min = model_params["tau_min"]
 ILC_noise = model_params["ILC_noise"] # Sensory noise in radians
-spike_noise_factor = model_params["spike_noise_factor"] # [0,1]. k = 1/sqrt(M) where M is number of neurons in a single artificial neuron.
+final_spike_noise_factor = model_params["final_spike_noise_factor"] # [0,1]. k = 1/sqrt(M) where M is number of neurons in a single artificial neuron.
 spike_noise_type = model_params["spike_noise_type"] # "gamma" or "normal"
 positive_input = model_params["positive_input"] # Positive input. 0 if not required to be positive.
 input_strength = model_params["input_strength"] # Mean value of Bu.
@@ -59,6 +59,20 @@ T_delay = model_params["T_delay"]
 T_decode = model_params["T_decode"]
 T_simul = T_init + T_stimi + T_delay + T_decode
 simul_steps = int(T_simul/dt)
+
+multi_stage_training_config = training_params["multi_stage_training"]
+multi_stage_training_num_stage = multi_stage_training_config["num_stage"]
+import math
+# log scale: from 1e-4 to target_noise, log均分
+min_noise = 1e-4
+max_noise = final_spike_noise_factor
+if multi_stage_training_num_stage == 1:
+    multi_stage_training_noise_levels = [max_noise]
+else:
+    log_min = math.log10(min_noise)
+    log_max = math.log10(max_noise)
+    multi_stage_training_noise_levels = [round(10**(log_min + (log_max-log_min)*i/(multi_stage_training_num_stage-1)), 8) for i in range(multi_stage_training_num_stage)]
+
 
 # Training parameters
 train_rnn = training_params["train_rnn"]  # Set to True if training is required
@@ -76,10 +90,9 @@ adaptive_lr_patience = training_params["adaptive_lr_patience"]
 
 # Model and logging parameters
 rnn_name = logging_params["rnn_name"]
-rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}{spike_noise_type.lower()[:5]}{spike_noise_factor}{error_def}'
+rnn_name = f'{rnn_name}_n{num_neurons}item{max_item_num}PI{int(positive_input)}{spike_noise_type.lower()[:5]}{final_spike_noise_factor}{error_def}'
 
 model_dir = f"rnn_models/{rnn_name}"
-cuda_device = int(logging_params["cuda_device"])
 plot_weights_bool = logging_params["plot_weights_bool"]
 error_dist_bool = logging_params["error_dist_bool"]
 fit_mixture_bool = logging_params["fit_mixture_bool"]
