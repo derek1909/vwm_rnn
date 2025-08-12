@@ -64,14 +64,14 @@ multi_stage_training_config = training_params["multi_stage_training"]
 multi_stage_training_num_stage = multi_stage_training_config["num_stage"]
 import math
 # log scale: from 1e-4 to target_noise, log-uniformly divided
-min_noise = 1e-4
+min_noise = 1e-3
 max_noise = final_spike_noise_factor
 if multi_stage_training_num_stage == 1:
     multi_stage_training_noise_levels = [max_noise]
 else:
-    log_min = math.log10(min_noise)
-    log_max = math.log10(max_noise)
-    multi_stage_training_noise_levels = [round(10**(log_min + (log_max-log_min)*i/(multi_stage_training_num_stage-1)), 8) for i in range(multi_stage_training_num_stage)]
+    log_min = math.log(min_noise)
+    log_max = math.log(max_noise)
+    multi_stage_training_noise_levels = [math.exp(log_min + (log_max - log_min) * i / (multi_stage_training_num_stage - 1)) for i in range(multi_stage_training_num_stage)]
 
 
 # Training parameters

@@ -23,24 +23,24 @@ training_params:
   use_scripted_model: false
   num_iterations: 40000
   error_def: 'norml2'
-  eta: 0.001
+  eta: 0.0001
   lambda_reg: 0.00001
   lambda_err: 1.0
-  num_trials: 200
+  num_trials: 300
   logging_period: 10
-  early_stop_patience: 200
+  early_stop_patience: 150
   adaptive_lr_patience: 100
   multi_stage_training:
-    num_stage: 3
+    num_stage: 5
 
 model_and_logging_params:
   rnn_name: "MultiStageTraining"
-  plot_weights_bool: false
-  error_dist_bool: false
-  fit_mixture_bool: false
-  snr_analy_bool: false
-  mixed_selec_bool: false
-  divis_norma_bool: false
+  plot_weights_bool: true
+  error_dist_bool: true
+  fit_mixture_bool: true
+  snr_analy_bool: true
+  mixed_selec_bool: true
+  divis_norma_bool: true
 
 fpf_params: 
   fpf_bool: false
