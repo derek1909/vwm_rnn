@@ -83,9 +83,9 @@ def collect_results(exp_dir, para_name):
                 
             final_results[para] = {
                 'final_iteration': history['iterations'][-1],
-                'final_error': history['error_per_iteration'][-1],
-                'final_error_std': history['error_std_per_iteration'][-1],
-                'final_activation': history['activation_per_iteration'][-1],
+                'final_error': history['overall_errors'][-1],
+                'final_error_std': history['overall_std'][-1],
+                'final_activation': history['overall_activ'][-1],
                 'group_errors': [errors[-1] for errors in history['group_errors']],
                 'group_std': [std[-1] for std in history['group_std']],
                 'group_activ': [activ[-1] for activ in history['group_activ']]

@@ -115,58 +115,85 @@ def plot_results(decoded_orientations_dict):
     plt.legend(handles=[stimulus_period_legend, decode_period_legend, response_legend, target_legend], loc='upper right')
     # plt.show()
 
-def plot_training_history(error_per_iteration, error_std_per_iteration, activation_per_iteration):
-    """Plot training curves for error (with std) and average firing rate."""
-    # Create figure with dual y-axes
-    fig, ax1 = plt.subplots(figsize=(5, 4))
-    iterations = np.arange(1, len(error_per_iteration) + 1)
+def plot_overall_training_history(iterations, overall_errors, overall_std, overall_activ, stage_switches, ):
+    """Plot training curves for error (with std) and average firing rate. X轴为真实iteration号。"""
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+
+    # Stage shading
+    if stage_switches is not None and len(stage_switches) > 0:
+        switches = [0] + list(stage_switches) + [iterations[-1]]
+        for i in range(len(switches)-1):
+            ax1.axvspan(switches[i]+1, switches[i+1], color='gray', alpha=0.12*(i%2+1), zorder=0)
+
+    colormap = plt.cm.tab10
+    err_color = colormap(1 % 10)    # Blue for errors
+    activ_color = colormap(4 % 10)  # Orange for activations
 
     # Plot error curve with confidence bands
-    error_color = 'blue'
-    ax1.plot(iterations, error_per_iteration, label="Error", color=error_color, marker='o', markersize=2)
+    line_error, = ax1.plot(
+        iterations, overall_errors, label="Error", color=err_color, marker='o', markersize=2
+    )
     ax1.fill_between(
         iterations,
-        np.array(error_per_iteration) - np.array(error_std_per_iteration),
-        np.array(error_per_iteration) + np.array(error_std_per_iteration),
-        color=error_color,
+        np.array(overall_errors) - np.array(overall_std),
+        np.array(overall_errors) + np.array(overall_std),
+        color=err_color,
         alpha=0.2,
-        label="Error (± std)"
+        label="Error ± std"
     )
-    ax1.set_xlabel('iteration')
-    ax1.set_ylabel('Error Loss', color=error_color)
-    ax1.tick_params(axis='y', labelcolor=error_color)
+    ax1.set_xlabel('Iteration')
+    ax1.set_ylabel('Error Loss', color=err_color)
+    ax1.tick_params(axis='y', labelcolor=err_color)
     ax1.grid(True)
+    ax1.set_ylim(0, 2)
 
-    # Annotate final error value
-    ax1.axhline(y=error_per_iteration[-1], color=error_color, linestyle='--', alpha=0.7)
+    # Annotate final error value with background box
     ax1.annotate(
-        f"{error_per_iteration[-1]:.3f}",
-        xy=(iterations[-1], error_per_iteration[-1]),
-        xytext=(5, 0), textcoords="offset points",
-        color=error_color, fontsize=9, fontweight="bold"
+        f"{overall_errors[-1]:.3f} rad",
+        xy=(iterations[-1], overall_errors[-1]),
+        xytext=(-20, -15), textcoords="offset points",
+        color=err_color, fontsize=10, fontweight="bold",
+        bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')
     )
 
     # Plot activation on secondary y-axis
-    activation_color = 'orange'
     ax2 = ax1.twinx()
-    ax2.plot(iterations, activation_per_iteration, label="Activation", color=activation_color, marker='o', markersize=2)
-    ax2.set_ylabel('Ave Firing Rate (Hz)', color=activation_color)
-    ax2.tick_params(axis='y', labelcolor=activation_color)
-
-    # Annotate final activation value
-    ax2.axhline(y=activation_per_iteration[-1], color=activation_color, linestyle='--', alpha=0.7)
-    ax2.annotate(
-        f"{activation_per_iteration[-1]:.3f}Hz",
-        xy=(iterations[-1], activation_per_iteration[-1]),
-        xytext=(5, 0), textcoords="offset points",
-        color=activation_color, fontsize=9, fontweight="bold"
+    line_activ, = ax2.plot(
+        iterations, overall_activ, label="Activation", color=activ_color, marker='o', markersize=2
     )
-    
+    ax2.set_ylabel('Ave Firing Rate (Hz)', color=activ_color)
+    ax2.tick_params(axis='y', labelcolor=activ_color)
+
+    # Annotate final activation value with background box
+    ax2.annotate(
+        f"{overall_activ[-1]:.3f} Hz",
+        xy=(iterations[-1], overall_activ[-1]),
+        xytext=(-20, -20), textcoords="offset points",
+        color=activ_color, fontsize=10, fontweight="bold",
+        bbox=dict(facecolor='white', edgecolor='none', alpha=0.8, boxstyle='round,pad=0.3')
+    )
+
+    # Create global legend at bottom
+    fig.legend(
+        handles=[
+            line_error,
+            plt.Line2D([0], [0], color=err_color, alpha=0.2, lw=10, label="Error ± std"),
+            line_activ,
+        ],
+        labels=["Error", "Error ± std", "Activation"],
+        loc='lower center',
+        ncol=3
+    )
+
     plt.title('Training Error and Activation vs Iteration')
     fig.tight_layout()
+
+    # Save training history plot
+    file_path = os.path.join(model_dir, f'overall_training_history.png')
+    plt.savefig(file_path, dpi=300)
     # plt.show()
 
-def plot_group_training_history(iterations, group_errors, group_stds, group_activ, item_num, logging_period):
+def plot_group_training_history(iterations, group_errors, group_stds, group_activ, item_num):
     """Plot training history separately for each set size with dual y-axes."""
     num_groups = len(group_errors)
 
@@ -247,7 +274,7 @@ def plot_group_training_history(iterations, group_errors, group_stds, group_acti
     axes[-1].set_xlabel("Iterations")
 
     # Save training history plot
-    file_path = os.path.join(model_dir, f'training_history.png')
+    file_path = os.path.join(model_dir, f'group_training_history.png')
     plt.savefig(file_path, dpi=300)
 
     def plot_error_activ_vs_itemnum(errors, activs, plot_path):
@@ -315,32 +342,14 @@ def load_model_and_history(model, model_dir, model_name="model", history_name="t
         # Load training history to get latest iteration
         with open(history_path, 'r') as f:
             history = yaml.safe_load(f)
-        iteration = history['iterations'][-1]
-        model_name = f'model_iteration{iteration}'
-
-        # 兼容多stage字段
-        if "stage_switch_iters" not in history:
-            history["stage_switch_iters"] = []
-        if "stage_noise_levels" not in history:
-            from config import multi_stage_training_noise_levels
-            history["stage_noise_levels"] = multi_stage_training_noise_levels.copy()
-        if "current_stage" not in history:
-            # 推断当前stage
-            from config import num_iterations, multi_stage_training_noise_levels
-            num_stages = len(multi_stage_training_noise_levels)
-            stage_iters = [int(num_iterations // num_stages) for _ in range(num_stages)]
-            for i in range(num_iterations % num_stages):
-                stage_iters[i] += 1
-            stage_start_iters = [0]
-            for n in stage_iters[:-1]:
-                stage_start_iters.append(stage_start_iters[-1] + n)
-            for i, st in enumerate(stage_start_iters):
-                if iteration < st:
-                    history["current_stage"] = max(0, i-1)
-                    break
-            else:
-                history["current_stage"] = num_stages-1
-
+        # Determine if training is completed, if so, load the best model
+        load_best = False
+        if history.get("training_completed", False) and history.get("best_model_iter") is not None:
+            model_name = "model_best"
+            load_best = True
+        else:
+            iteration = history['iterations'][-1]
+            model_name = f'model_iteration{iteration}'
         # Load model checkpoint
         if use_scripted_model:
             model_path = f'{model_dir}/models/scripted_{model_name}.pt'

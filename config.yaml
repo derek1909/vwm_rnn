@@ -5,8 +5,8 @@ model_params:
   dt: 10
   tau_max: 300
   tau_min: 50
-  ILC_noise: 0.00
-  final_spike_noise_factor: 0.05
+  ILC_noise: 0.01
+  final_spike_noise_factor: 0.5
   spike_noise_type: 'gamma'
   positive_input: true
   input_strength: 120
@@ -21,17 +21,17 @@ training_params:
   train_rnn: true
   load_history: false
   use_scripted_model: false
-  num_iterations: 4000
+  num_iterations: 40000
   error_def: 'norml2'
   eta: 0.001
   lambda_reg: 0.00001
   lambda_err: 1.0
   num_trials: 200
-  logging_period: 50
-  early_stop_patience: 100
-  adaptive_lr_patience: 60
+  logging_period: 10
+  early_stop_patience: 200
+  adaptive_lr_patience: 100
   multi_stage_training:
-    num_stage: 3  # multi-stage训练的阶段数
+    num_stage: 3
 
 model_and_logging_params:
   rnn_name: "MultiStageTraining"
@@ -40,6 +40,7 @@ model_and_logging_params:
   fit_mixture_bool: false
   snr_analy_bool: false
   mixed_selec_bool: false
+  divis_norma_bool: false
 
 fpf_params: 
   fpf_bool: false

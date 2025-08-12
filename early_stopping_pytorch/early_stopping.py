@@ -40,6 +40,30 @@ class EarlyStopping:
         self.path = path
         self.trace_func = trace_func
 
+    def get_state(self):
+        """Return a dict representing the current state for serialization."""
+        return {
+            'patience': self.patience,
+            'verbose': self.verbose,
+            'counter': self.counter,
+            'best_val_loss': float(self.best_val_loss) if self.best_val_loss is not None else None,
+            'early_stop': self.early_stop,
+            'val_loss_min': float(self.val_loss_min) if self.val_loss_min is not None else None,
+            'delta': self.delta,
+            'path': self.path,
+        }
+
+    def set_state(self, state):
+        """Restore state from a dict (as returned by get_state)."""
+        self.patience = state.get('patience', self.patience)
+        self.verbose = state.get('verbose', self.verbose)
+        self.counter = state.get('counter', 0)
+        self.best_val_loss = state.get('best_val_loss', None)
+        self.early_stop = state.get('early_stop', False)
+        self.val_loss_min = state.get('val_loss_min', np.inf)
+        self.delta = state.get('delta', 0)
+        self.path = state.get('path', 'checkpoint.pt')
+
     def __call__(self, val_loss, model):
         # Check if validation loss is nan
         if np.isnan(val_loss):

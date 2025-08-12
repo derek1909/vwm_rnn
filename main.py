@@ -66,8 +66,12 @@ def main_worker(rank, local_rank, world_size):
 
     # Training
     if train_rnn:
-        # print("[Main] Multi-stage training (always enabled). Using multi_stage_train().")
-        history = train(model, model_dir, history, rank=rank, world_size=world_size)
+    # If history is marked as training completed, skip training
+        if history is not None and history.get("training_completed", False):
+            if rank == 0:
+                print("Training already completed, skipping training phase.")
+        else:
+            history = train(model, model_dir, history, rank=rank, world_size=world_size)
 
     # Only the main process (rank 0) runs analysis and plotting
     if rank == 0:
@@ -80,14 +84,16 @@ def main_worker(rank, local_rank, world_size):
             error_dist_analysis(model.module)
 
         with torch.no_grad():
-            print(f"Running Divisive Normalisation Analysis (set size = 1)...")
-            divisive_normalisation_analysis(model.module)
+            if divis_norma_bool:
+                print(f"Running Divisive Normalisation Analysis (set size = 1)...")
+                divisive_normalisation_analysis(model.module)
 
             if plot_weights_bool:
                 plot_weights(model.module)
 
             if history:
-                plot_group_training_history(history["iterations"], history["group_errors"], history["group_std"], history["group_activ"], item_num, logging_period)
+                plot_overall_training_history(history["iterations"], history["overall_errors"], history["overall_std"], history["overall_activ"], history["stage_switch_iters"])
+                plot_group_training_history(history["iterations"], history["group_errors"], history["group_std"], history["group_activ"], item_num)
 
             if snr_analy_bool and (final_spike_noise_factor > 0):
                 print(f"Running Signal to Noise Ratio Analysis...")
@@ -96,12 +102,14 @@ def main_worker(rank, local_rank, world_size):
             if mixed_selec_bool:
                 print(f"Running Mixed Selectivity Analysis (set size = 1)...")
                 mixed_selectivity_analysis(model.module)
-
+    dist.barrier()
     dist.destroy_process_group()
+    return
+    
+
 
 
 if __name__ == "__main__":
-    import torch
     world_size = int(os.environ.get('WORLD_SIZE', torch.cuda.device_count()))
     rank = int(os.environ.get('RANK', 0))
     local_rank = int(os.environ.get('LOCAL_RANK', 0))

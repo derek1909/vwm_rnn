@@ -15,6 +15,7 @@ import torch.nn.functional as F
 from tqdm import tqdm
 from early_stopping_pytorch.early_stopping import EarlyStopping
 import yaml
+import copy
 
 from rnn import *
 from config import *
@@ -286,25 +287,32 @@ def error_calc(model, r_stack, target_thetas, presence, train_err=True):
     return mean_train_error, var_train_error, mean_eval_error, var_eval_error, activ_penalty
 
 def train(model, model_dir, history=None, rank=0, world_size=1):
+    import torch.distributed as dist
+    distributed = (world_size > 1)
+    best_model = None
     real_model = model.module if hasattr(model, 'module') else model
 
-    # Multi-stage training setup: 切换stage由early stopping触发
+    # Multi-stage training setup: stage switching is triggered by early stopping
     num_stages = len(multi_stage_training_noise_levels)
 
     # If no history is provided, initialize empty history
     if history is None:
         history = {
-            "error_per_iteration": [],  # Overall mean error per iteration
-            "error_std_per_iteration": [],  # std of overall error per iteration
-            "activation_per_iteration": [],
-            "group_errors": [[] for _ in item_num],  # List to store errors for each 'set size' group
-            "group_std": [[] for _ in item_num],  # List to store std of errors for each group
-            "group_activ": [[] for _ in item_num],  # List to store std of errors for each group
+            "overall_errors": [],
+            "overall_std": [],
+            "overall_activ": [],
+            "group_errors": [[] for _ in item_num],
+            "group_std": [[] for _ in item_num],
+            "group_activ": [[] for _ in item_num],
             "iterations": [],
             "lr": [],
             "stage_switch_iters": [],
             "stage_noise_levels": multi_stage_training_noise_levels.copy(),
             "current_stage": 0,
+            "early_stopping_state": None,
+            "best_model_iter": None,
+            "best_model_loss": None,
+            "training_completed": False,
         }
         start_iteration = 0
         start_lr = eta
@@ -318,11 +326,25 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
             history["stage_noise_levels"] = multi_stage_training_noise_levels.copy()
         if "current_stage" not in history:
             history["current_stage"] = 0
+        if "early_stopping_state" not in history:
+            history["early_stopping_state"] = None
+        if "best_model_iter" not in history:
+            history["best_model_iter"] = None
+        if "best_model_loss" not in history:
+            history["best_model_loss"] = None
+        if "training_completed" not in history:
+            history["training_completed"] = False
+
+    if history["best_model_loss"] is not None and best_model is None:
+        best_model = copy.deepcopy(model)
 
     device = model.device
     optimizer = optim.Adam(model.parameters(), lr=start_lr)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5,patience=adaptive_lr_patience)
     early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
+    # Restore early stopping state
+    if history.get("early_stopping_state") is not None:
+        early_stopping.set_state(history["early_stopping_state"])
 
     # Initialize buffers to store recent history
     error_buffer = []
@@ -338,14 +360,14 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
     # Adjust trials count for each group (distribute leftovers)
     trial_counts = [trials_per_group + (1 if i < remaining_trials else 0) for i in range(len(item_num))]
 
-    # Only display progress bar in the main process (rank 0). Set 
-    pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training Progress", unit="iteration", smoothing=0.0, dynamic_ncols=True) if rank == 0 else None 
+    # Only display progress bar in the main process (rank 0).
+    pbar = tqdm(total=num_iterations, initial=start_iteration, desc="Training:", unit="iter", smoothing=0.0, dynamic_ncols=True) if rank == 0 else None 
 
-    # stage切换逻辑：early stopping时切换
+    # Stage switching logic: switch when early stopping is triggered
     stage = history["current_stage"]
     for iteration in range(start_iteration, num_iterations):
         noise_level = history["stage_noise_levels"][stage]
-        # 设置当前stage的spike noise
+        # Set the spike noise for the current stage
         real_model.spike_noise_factor = noise_level
 
         # Generate presence for each group
@@ -389,6 +411,12 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
         optimizer.step()
         scheduler.step(total_loss)
         earlystop_counter = early_stopping(total_loss.detach().cpu(), model)
+        # If best loss is updated, record best model info and save a full model copy in memory
+        if (history["best_model_loss"] is None) or (early_stopping.best_val_loss < history["best_model_loss"]):
+            history["best_model_loss"] = float(early_stopping.best_val_loss)
+            history["best_model_iter"] = iteration
+            # Save a full copy of the best model in memory
+            best_model = copy.deepcopy(model)
 
         if real_model.positive_input:
             real_model.B.data = F.relu(real_model.B.data)  # Ensure B is non-negative
@@ -396,7 +424,7 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
             real_model.W.data = F.relu(real_model.W.data)  # Ensure raw W is non-negative if dales law is applied.
         
 
-        # Append errors and activs to the history buffers
+        # Append errors and activations to the history buffers
         error_buffer.append(mean_eval_error.item())
         error_std_buffer.append(var_eval_error.sqrt().item())
         activation_buffer.append((activ_penalty).item())
@@ -419,12 +447,14 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
 
         if iteration % logging_period == 0 and rank == 0:
             # Calculate averages for buffers and store in history
-            history["error_per_iteration"].append(sum(error_buffer) / len(error_buffer))
-            history["error_std_per_iteration"].append(sum(error_std_buffer) / len(error_std_buffer))
-            history["activation_per_iteration"].append(sum(activation_buffer) / len(activation_buffer))
+            history["overall_errors"].append(sum(error_buffer) / len(error_buffer))
+            history["overall_std"].append(sum(error_std_buffer) / len(error_std_buffer))
+            history["overall_activ"].append(sum(activation_buffer) / len(activation_buffer))
             history["iterations"].append(iteration)
             history["lr"].append(scheduler.get_last_lr()[0])
-
+            history["current_stage"] = stage
+            history["early_stopping_state"] = early_stopping.get_state()
+            
             for i in range(len(group_error_buffers)):
                 history["group_errors"][i].append(sum(group_error_buffers[i]) / len(group_error_buffers[i]))
                 history["group_std"][i].append(sum(group_std_buffers[i]) / len(group_std_buffers[i]))
@@ -442,12 +472,15 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
 
             # Update progress bar
             if pbar is not None:
-                pbar.set_postfix({
-                    "Error": f"{history['error_per_iteration'][-1]:.4f}rad",
-                    "Activ": f"{history['activation_per_iteration'][-1]:.4f}Hz",
-                    "lr": f"{scheduler.get_last_lr()[0]}",
-                    "PatienceCnt": earlystop_counter,
-                })
+                pbar.set_postfix(
+                    {
+                        "Stage": f"{stage+1}/{num_stages}",
+                        "Noise": f"{history['stage_noise_levels'][stage]:.3g}",
+                        "Error": f"{history['overall_errors'][-1]:.3g}rad",
+                        "Activ": f"{history['overall_activ'][-1]:.2g}Hz",
+                        "lr": f"{scheduler.get_last_lr()[0]:.0e}",
+                    }
+                )
                 pbar.update(logging_period)
 
             # Save model and history every logging_period iterations
@@ -456,18 +489,34 @@ def train(model, model_dir, history=None, rank=0, world_size=1):
                                 model_dir,
                                 model_name=f'model_iteration{iteration}')
 
+        # Distributed synchronization of early stop flag: only use rank 0's early stop, other ranks synchronize this flag every iteration
+        early_stop_tensor = torch.tensor([float(early_stopping.early_stop)], device=device)
+        dist.broadcast(early_stop_tensor, src=0)
+        if rank != 0:
+            early_stopping.early_stop = bool(early_stop_tensor.item())
+            
         if early_stopping.early_stop:
-            if rank == 0:
-                print(f"Early stopping at iter {iteration}, stage {stage}")
-            # 切换到下一个stage（如果有）
+            # All ranks synchronously execute the early stop branch
             if stage+1 < num_stages:
+                if rank == 0:
+                    print(f"Early stopping at iter {iteration}, stage {stage}")
                 stage += 1
                 history["current_stage"] = stage
                 history["stage_switch_iters"].append(iteration)
                 early_stopping = EarlyStopping(patience=early_stop_patience, verbose=False)
-                # 不break，直接进入下一个stage继续训练
+                for param_group in optimizer.param_groups:
+                    param_group['lr'] = eta
+                history["early_stopping_state"] = None
             else:
-                break
-    if pbar is not None:
-        pbar.close()
+                if rank == 0:
+                    pbar.close()
+                    print(f"Early stopping at iter {iteration}, stage {stage}")
+                    print(f"Training completed. Saving best model...")
+
+                    history["training_completed"] = True
+                    history["early_stopping_state"] = early_stopping.get_state()
+                    os.makedirs(f'{model_dir}/models', exist_ok=True)
+                    save_model_and_history(best_model, history, model_dir, model_name=f'model_best')
+                return history
+
     return history

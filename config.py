@@ -63,7 +63,7 @@ simul_steps = int(T_simul/dt)
 multi_stage_training_config = training_params["multi_stage_training"]
 multi_stage_training_num_stage = multi_stage_training_config["num_stage"]
 import math
-# log scale: from 1e-4 to target_noise, log均分
+# log scale: from 1e-4 to target_noise, log-uniformly divided
 min_noise = 1e-4
 max_noise = final_spike_noise_factor
 if multi_stage_training_num_stage == 1:
@@ -98,6 +98,7 @@ error_dist_bool = logging_params["error_dist_bool"]
 fit_mixture_bool = logging_params["fit_mixture_bool"]
 snr_analy_bool = logging_params["snr_analy_bool"]
 mixed_selec_bool = logging_params["mixed_selec_bool"]
+divis_norma_bool = logging_params["divis_norma_bool"]
 
 # Fixed Point Finder parameters
 fpf_bool = fpf_params["fpf_bool"]
