@@ -11,7 +11,6 @@ This codebase implements a biologically-inspired RNN model that simulates visual
 
 - [Installation](#installation)
 - [Project Structure](#project-structure)
-- [Quick Start](#quick-start)
 - [Distributed Training](#distributed-training)
 - [Configuration](#configuration)
 - [Analysis Tools](#analysis-tools)
